@@ -1,0 +1,162 @@
+# Gladys JewelBox
+
+**English** | [Français](README.fr.md)
+
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/William-De71/gladys-jewelbox?sort=semver)](https://github.com/William-De71/gladys-jewelbox/releases)
+[![CI](https://img.shields.io/github/actions/workflow/status/William-De71/gladys-jewelbox/release.yml?branch=main&label=CI)](https://github.com/William-De71/gladys-jewelbox/actions/workflows/release.yml)
+[![Gladys](https://img.shields.io/badge/Gladys-%E2%89%A5%205.1.0-2f6fb5)](https://gladysassistant.com)
+
+![JewelBox for Gladys Assistant](cover.jpg)
+
+Your [JewelBox Music Library](https://github.com/William-De71/Jewelbox-Music-Library) CD collection in Gladys Assistant: the counters of the shelf, the loans, what the JewelBox players play, dashboard widgets and scenes. Everything stays on the local network: the server is found by mDNS.
+
+> **A personal integration.** It is not in the Gladys store (the repository does not carry the `gladys-assistant-integration` topic, on purpose). Install it from the URL of this repository.
+
+## Features
+
+- **Collection device**: albums, wish list, albums lent out, artists, average rating, hours of music, days of the oldest loan (history and charts of Gladys).
+- **One device per JewelBox player** (web app, desktop player, Android app): playing or not, track, artist, album. Read-only.
+- **Scene triggers**: album added (collection or wish list, or a wish come true), album lent, album returned, loan overdue, playback started / stopped, new track.
+- **Scene actions**: what is playing, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
+- **Five dashboard widgets**: player with its cover, collection, lent albums, album of the day, recently added.
+- **Found by itself** on the network (mDNS `_jewelbox._tcp`), an address to type as a fallback.
+
+## How it works
+
+![Architecture (illustration)](docs/assets/architecture.svg)
+
+```mermaid
+flowchart LR
+  G["Gladys Assistant"] <-- "REST /api/integration/v1/* + WebSocket" --> I["gladys-jewelbox (Docker)"]
+  I -- "HTTP on the LAN, REST /api" --> J["JewelBox Music Library (port 3001)"]
+  G -. "mDNS scan for the integration" .-> J
+```
+
+```mermaid
+sequenceDiagram
+  participant U as User
+  participant G as Gladys
+  participant I as gladys-jewelbox
+  participant J as JewelBox server
+  I->>G: scanNetwork mdns (_jewelbox._tcp)
+  G-->>I: address and port
+  I->>J: GET /api/server-info (server_id)
+  I->>J: GET /api/player/queue/devices
+  I->>G: discovered devices (collection, players)
+  U->>G: adds the devices (Discover tab)
+  G->>I: device created
+  loop every 10 s / every minute
+    I->>J: queues of the players / statistics, albums, loans
+    I->>G: states, scene events
+  end
+```
+
+### Transport
+
+`local` only. Nothing leaves the local network, and JewelBox needs no account. The core of Gladys makes the mDNS scan (the containers of integrations cannot see multicast), then the integration talks to JewelBox in plain HTTP.
+
+### Is a player playing?
+
+JewelBox does not store a play / pause state: each player saves its queue on the server, with the position, every 10 s (web app) or 30 s (desktop and Android), and once more at a pause. The integration deduces the state from these writes: a new track or a position moving at the usual pace is “playing”, an early write or no write for the pace + 20 s is “stopped”. A pause is therefore seen 10 to 50 s late. The players cannot be controlled from Gladys: JewelBox has no command channel for now.
+
+## Devices and features
+
+| Device              | Feature                              | Category / type               | Notes              |
+| ------------------- | ------------------------------------ | ----------------------------- | ------------------ |
+| JewelBox collection | Albums, Wish list, Lent out, Artists | `counter-sensor` / `integer`  | from `/api/stats`  |
+| JewelBox collection | Average rating                       | `counter-sensor` / `decimal`  | 1 to 5             |
+| JewelBox collection | Playing time                         | `duration` / `decimal`, hours | whole collection   |
+| JewelBox collection | Oldest loan                          | `duration` / `integer`, days  | 0 without loan     |
+| JewelBox player     | Playback                             | `music` / `playback_state`    | deduced, read-only |
+| JewelBox player     | Track, Artist, Album                 | `text` / `text`               | the current track  |
+
+External ids are built on the identifiers JewelBox keeps: the `server_id` of the server and the device id of each player, never an address or a label.
+
+## Scene triggers, actions and widgets
+
+![The five widgets (generated illustration, not a screenshot)](docs/assets/widgets.en.png)
+
+_Generated illustration, not a screenshot: invented albums and plain covers, drawn by `docs/illustrations/render.sh` with the real code of the widgets._
+
+| Trigger                                                   | When                                                               | Variables                                              |
+| --------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------ |
+| `album_added`                                             | an album in the collection or the wish list, a wished album bought | title, artist, year, genre, label, list, from_wishlist |
+| `album_lent` / `album_returned`                           | a loan starts / ends (not when a scene did it)                     | title, artist, borrower, days                          |
+| `loan_overdue`                                            | a loan passes the reminder delay, once per loan                    | title, artist, borrower, days                          |
+| `playback_started` / `playback_stopped` / `track_changed` | a player starts, stops, changes track                              | player, title, artist, album                           |
+
+| Action                        | Does                                                   | Outputs                                                   |
+| ----------------------------- | ------------------------------------------------------ | --------------------------------------------------------- |
+| `get_now_playing`             | reads a player                                         | player_name, playing, title, artist, album                |
+| `random_album`                | draws an album (optional genre)                        | title, artist, year, genre, label, summary                |
+| `album_of_the_day`            | the first suggestion of the day of JewelBox            | same                                                      |
+| `lend_album` / `return_album` | lends an album (id or exact title) / marks it returned | title, artist, borrower (, days)                          |
+| `scan_library`                | scans the music folder, waits for the end              | finished, matched_albums, matched_tracks, unmatched_files |
+
+Examples:
+
+- **When an album is lent** → send me “{{triggerEvent.data.title}} lent to {{triggerEvent.data.borrower}}”.
+- **When a loan is overdue** → remind me who has {{triggerEvent.data.title}} for {{triggerEvent.data.days}} days.
+- **When the living room player starts** → dim the lights; **every Sunday at 10:00** → “Album of the day” → send its summary.
+
+## Prerequisites
+
+- Gladys Assistant **5.1.0** or later (widgets and scenes). Older instances cannot install the integration.
+- JewelBox Music Library 1.17.0 or later on the same local network.
+- For the mDNS discovery: JewelBox announces `_jewelbox._tcp` (on by default). In Docker, use `network_mode: host`, otherwise type its address.
+
+## Installation
+
+1. In Gladys: **Integrations → External integrations → install from a repository URL**, then `https://github.com/William-De71/gladys-jewelbox`.
+2. Developer mode: build the image on the Gladys machine (`docker build -t gladys-jewelbox .`) and install it from “Developer mode: install from a Docker image”.
+
+## Configuration
+
+| Field                 | Default | Role                                                 |
+| --------------------- | ------- | ---------------------------------------------------- |
+| Server address        | empty   | empty: found by mDNS; else `http://host:3001`        |
+| Language of the texts | French  | names of devices, statuses, texts of the actions     |
+| Loan reminder (days)  | 30      | delay of `loan_overdue` and of the orange badge      |
+| Players shown (days)  | 90      | the Discover tab only offers the players used lately |
+
+The **Test the connection** button finds the server and says what it sees.
+
+## Usage
+
+1. Save the configuration, then **Test the connection**.
+2. **Discover** tab: add the collection device and the players you use.
+3. Add the widgets on a dashboard, write scenes with the triggers and actions above.
+
+## Development
+
+```bash
+npm install
+npm test                      # node --test, the fake JewelBox server, never the network
+npm run lint && npm run format:check
+docs/illustrations/render.sh  # the widget images
+scripts/build-cover.sh        # cover.jpg from the JewelBox icon
+```
+
+Run against a real Gladys: install in developer mode to get a token, then `GLADYS_HOST_API_URL=http://localhost:1443 GLADYS_INTEGRATION_TOKEN=… GLADYS_INTEGRATION_SELECTOR=… npm start`. `JEWELBOX_DATA_DIR` moves `/data`.
+
+## Release
+
+![Release pipeline (illustration)](docs/assets/release-pipeline.svg)
+
+Every merge on `main` releases when its Conventional Commits deserve it (`feat` → minor, `fix` → patch, below 1.0.0 a breaking change is a minor): CI, version, `CHANGELOG.md` generated, tag, multi-arch image `ghcr.io/william-de71/gladys-jewelbox`, then `main`, the GitHub Release, and a check that the image is public and that the store topic is absent. PR titles are the changelog lines. The ruleset of `main` forbids deletion and force-push only: a “PR required” rule would block the release commit (allow GitHub Actions to bypass it, or use a GitHub App).
+
+## Troubleshooting
+
+- **“No JewelBox server found”**: JewelBox stopped, mDNS off (`MDNS_ENABLED=false`) or JewelBox in a Docker bridge: type its address.
+- **A player is “stopped” while it plays**: it saved no position for a while (a browser tab in the background may slow down); it comes back at the next write.
+- **No cover in a widget**: the cover is not stored on the server (a remote URL), or it weighs over 300 KB.
+- Logs: Settings → Supervision; `DEBUG=gladys-integration-sdk` for the SDK in developer mode.
+
+## Security
+
+See [SECURITY.md](SECURITY.md). JewelBox has no authentication: anyone on the local network can read and change it, Gladys included.
+
+## License
+
+[Apache-2.0](LICENSE). See [NOTICE](NOTICE).

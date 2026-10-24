@@ -1,0 +1,12 @@
+Gladys JewelBox integration
+Copyright 2026 William Deren
+
+This product is licensed under the Apache License, Version 2.0 (see LICENSE).
+
+It reads JewelBox Music Library (https://github.com/William-De71/Jewelbox-Music-Library,
+MIT License, same author) through its REST API on the local network. The
+cover is built from the icon of JewelBox Music Library
+(docs/assets/jewelbox-icon.png, copied from client/public/icons/icon-512.png).
+
+The albums, artists and borrowers of the tests and of the generated widget
+illustrations are invented, and their covers are plain generated pictures.

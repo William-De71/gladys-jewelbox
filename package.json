@@ -1,0 +1,42 @@
+{
+  "name": "gladys-jewelbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gladys Assistant external integration for JewelBox Music Library, a self-hosted CD collection: collection counters, loans, players (read-only), scene triggers and actions, dashboard widgets. Found on the LAN by mDNS.",
+  "homepage": "https://github.com/William-De71/gladys-jewelbox",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/William-De71/gladys-jewelbox.git"
+  },
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "node --test",
+    "coverage": "node --test --experimental-test-coverage --test-coverage-include=src/**/*.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@gladysassistant/integration-sdk": "^0.15.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.13.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10"
+  },
+  "license": "Apache-2.0",
+  "keywords": [
+    "gladys-assistant",
+    "jewelbox",
+    "cd-collection",
+    "music",
+    "home-automation"
+  ]
+}

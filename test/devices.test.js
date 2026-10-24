@@ -1,0 +1,121 @@
+// The checks the core makes on the discovered devices and that the fake
+// Gladys does not all make: a single invalid field rejects the whole batch,
+// and a missing min / max / read_only / has_feedback breaks "Add" (422).
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import {
+  DEVICE_FEATURE_CATEGORIES,
+  DEVICE_FEATURE_TYPES,
+  DEVICE_FEATURE_UNITS,
+} from '@gladysassistant/integration-sdk';
+import {
+  buildCollectionDevice,
+  buildPlayerDevice,
+  collectionValues,
+  parseExternalId,
+  playerNames,
+  playerValues,
+} from '../src/devices.js';
+
+const gladys = {
+  externalIds: (type, id) => ({
+    device: `ext:test-integration:${type}:${id}`,
+    feature: (key) => `ext:test-integration:${type}:${id}:${key}`,
+  }),
+};
+const SERVER = '009004e9-ab55-4894-9e96-10e930a04b7f';
+const PLAYER = '249102a0-f41b-4c4c-b17a-ec3eee29edf4';
+const devices = (language) => [
+  buildCollectionDevice(gladys, { serverId: SERVER }, language),
+  buildPlayerDevice(gladys, PLAYER, 'JewelBox bureau', language),
+];
+
+test('every feature: a known category/type pair, min, max, read_only, has_feedback, no poll', () => {
+  const types = Object.fromEntries(
+    Object.entries(DEVICE_FEATURE_CATEGORIES).map(([key, category]) => [
+      category,
+      new Set(Object.values(DEVICE_FEATURE_TYPES[key] ?? DEVICE_FEATURE_TYPES.SENSOR)),
+    ]),
+  );
+  const units = new Set(Object.values(DEVICE_FEATURE_UNITS));
+  for (const language of ['en', 'fr']) {
+    for (const device of devices(language)) {
+      assert.equal(device.should_poll, false);
+      assert.equal(device.poll_frequency, undefined);
+      assert.ok(device.name.length > 0);
+      for (const feature of device.features) {
+        assert.ok(
+          types[feature.category]?.has(feature.type),
+          `${feature.external_id}: ${feature.category}/${feature.type}`,
+        );
+        for (const key of ['min', 'max', 'read_only', 'has_feedback', 'keep_history']) {
+          assert.notEqual(feature[key], undefined, `${feature.external_id}.${key}`);
+        }
+        assert.ok(feature.min <= feature.max, feature.external_id);
+        assert.equal(feature.read_only, true, 'JewelBox cannot be commanded');
+        if (feature.unit) assert.ok(units.has(feature.unit), feature.unit);
+        assert.ok(feature.external_id.startsWith(`${device.external_id}:`));
+        assert.ok(feature.name.startsWith(device.name), feature.name);
+      }
+    }
+  }
+});
+
+test('external ids: built on the stable JewelBox ids, parsed back, anything else refused', () => {
+  const [collection, player] = devices('en');
+  assert.equal(collection.external_id, `ext:test-integration:collection:${SERVER}`);
+  assert.deepEqual(parseExternalId(gladys, collection.external_id), {
+    type: 'collection',
+    id: SERVER,
+  });
+  assert.deepEqual(parseExternalId(gladys, `${player.external_id}:playing`), {
+    type: 'player',
+    id: PLAYER,
+  });
+  assert.equal(parseExternalId(gladys, 'ext:test-integration:player:../x'), null);
+  assert.equal(parseExternalId(gladys, 'ext:other:player:abc'), null);
+  assert.equal(parseExternalId(gladys, undefined), null);
+});
+
+test('values: a missing statistic is omitted, never 0; texts never empty', () => {
+  assert.deepEqual(
+    collectionValues(
+      { total_owned: 651, avg_rating: 4.63, total_duration_hours: 572, total_duration_mins: 41 },
+      0,
+    ),
+    [
+      ['owned', 651],
+      ['rating', 4.6],
+      ['play_time', 572.7],
+      ['oldest_loan', 0],
+    ],
+  );
+  assert.deepEqual(collectionValues(null, null), []);
+  const values = Object.fromEntries(
+    playerValues({ playing: false, track: { title: '', artist: 'A', album: null } }),
+  );
+  assert.deepEqual(values, {
+    playing: 0,
+    track: { text: '–' },
+    artist: { text: 'A' },
+    album: { text: '–' },
+  });
+});
+
+test('player names: JewelBox prefix, the id when two share a label', () => {
+  const names = playerNames([
+    { device_id: 'aaaaaaaa-1', device_label: 'JewelBox Android · 2412DPC0AG' },
+    { device_id: 'bbbbbbbb-1', device_label: 'Chrome' },
+    { device_id: 'cccccccc-1', device_label: 'Chrome' },
+    { device_id: 'dddddddd-1', device_label: null },
+  ]);
+  assert.deepEqual(
+    [...names.values()],
+    [
+      'JewelBox Android · 2412DPC0AG',
+      'JewelBox Chrome (bbbbbbbb)',
+      'JewelBox Chrome (cccccccc)',
+      'JewelBox',
+    ],
+  );
+});

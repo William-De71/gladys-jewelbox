@@ -1,0 +1,613 @@
+{
+  "devices": {
+    "collection": {
+      "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f",
+      "should_poll": false,
+      "params": ["JEWELBOX_SERVER_ID"],
+      "features": [
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:owned",
+          "category": "counter-sensor",
+          "type": "integer",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:wanted",
+          "category": "counter-sensor",
+          "type": "integer",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:lent",
+          "category": "counter-sensor",
+          "type": "integer",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:artists",
+          "category": "counter-sensor",
+          "type": "integer",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:rating",
+          "category": "counter-sensor",
+          "type": "decimal",
+          "min": 0,
+          "max": 5,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:play_time",
+          "category": "duration",
+          "type": "decimal",
+          "unit": "hours",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:oldest_loan",
+          "category": "duration",
+          "type": "integer",
+          "unit": "days",
+          "min": 0,
+          "max": 36500,
+          "read_only": true,
+          "has_feedback": false
+        }
+      ]
+    },
+    "player": {
+      "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4",
+      "should_poll": false,
+      "params": ["JEWELBOX_DEVICE_ID"],
+      "features": [
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:playing",
+          "category": "music",
+          "type": "playback_state",
+          "min": 0,
+          "max": 1,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:track",
+          "category": "text",
+          "type": "text",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:artist",
+          "category": "text",
+          "type": "text",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:album",
+          "category": "text",
+          "type": "text",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        }
+      ]
+    }
+  },
+  "manifest": {
+    "config_schema": [
+      {
+        "key": "intro",
+        "type": "section"
+      },
+      {
+        "key": "server_url",
+        "type": "string"
+      },
+      {
+        "key": "language",
+        "type": "select"
+      },
+      {
+        "key": "loan_reminder_days",
+        "type": "number"
+      },
+      {
+        "key": "players_max_age_days",
+        "type": "number"
+      }
+    ],
+    "config_options": {
+      "language": ["en", "fr"]
+    },
+    "actions": ["test_connection"],
+    "widgets": [
+      {
+        "key": "now_playing",
+        "settings": ["player"],
+        "options": {}
+      },
+      {
+        "key": "collection",
+        "settings": [],
+        "options": {}
+      },
+      {
+        "key": "loans",
+        "settings": [],
+        "options": {}
+      },
+      {
+        "key": "album_of_the_day",
+        "settings": [],
+        "options": {}
+      },
+      {
+        "key": "recently_added",
+        "settings": ["list"],
+        "options": {
+          "list": ["all", "owned", "wanted"]
+        }
+      }
+    ],
+    "scene_triggers": [
+      {
+        "key": "album_added",
+        "fields": ["list"],
+        "options": {
+          "list": ["owned", "wanted"]
+        },
+        "variables": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "list",
+            "type": "string"
+          },
+          {
+            "key": "from_wishlist",
+            "type": "boolean"
+          }
+        ]
+      },
+      {
+        "key": "album_lent",
+        "fields": ["borrower"],
+        "options": {},
+        "variables": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "borrower",
+            "type": "string"
+          },
+          {
+            "key": "days",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "key": "album_returned",
+        "fields": ["borrower"],
+        "options": {},
+        "variables": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "borrower",
+            "type": "string"
+          },
+          {
+            "key": "days",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "key": "loan_overdue",
+        "fields": ["borrower"],
+        "options": {},
+        "variables": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "borrower",
+            "type": "string"
+          },
+          {
+            "key": "days",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "key": "playback_started",
+        "fields": ["player"],
+        "options": {},
+        "variables": [
+          {
+            "key": "player",
+            "type": "string"
+          },
+          {
+            "key": "player_name",
+            "type": "string"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "album",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "key": "playback_stopped",
+        "fields": ["player"],
+        "options": {},
+        "variables": [
+          {
+            "key": "player",
+            "type": "string"
+          },
+          {
+            "key": "player_name",
+            "type": "string"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "album",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "key": "track_changed",
+        "fields": ["player", "artist"],
+        "options": {},
+        "variables": [
+          {
+            "key": "player",
+            "type": "string"
+          },
+          {
+            "key": "player_name",
+            "type": "string"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "album",
+            "type": "string"
+          }
+        ]
+      }
+    ],
+    "scene_actions": [
+      {
+        "key": "get_now_playing",
+        "fields": ["player"],
+        "options": {},
+        "outputs": [
+          {
+            "key": "player_name",
+            "type": "string"
+          },
+          {
+            "key": "playing",
+            "type": "boolean"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "album",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "key": "random_album",
+        "fields": ["genre"],
+        "options": {},
+        "outputs": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "summary",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "key": "album_of_the_day",
+        "fields": [],
+        "options": {},
+        "outputs": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "summary",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "key": "lend_album",
+        "fields": ["album", "borrower"],
+        "options": {},
+        "outputs": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "borrower",
+            "type": "string"
+          }
+        ]
+      },
+      {
+        "key": "return_album",
+        "fields": ["album"],
+        "options": {},
+        "outputs": [
+          {
+            "key": "album_id",
+            "type": "number"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          },
+          {
+            "key": "artist",
+            "type": "string"
+          },
+          {
+            "key": "year",
+            "type": "number"
+          },
+          {
+            "key": "genre",
+            "type": "string"
+          },
+          {
+            "key": "label",
+            "type": "string"
+          },
+          {
+            "key": "borrower",
+            "type": "string"
+          },
+          {
+            "key": "days",
+            "type": "number"
+          }
+        ]
+      },
+      {
+        "key": "scan_library",
+        "fields": [],
+        "options": {},
+        "outputs": [
+          {
+            "key": "finished",
+            "type": "boolean"
+          },
+          {
+            "key": "matched_albums",
+            "type": "number"
+          },
+          {
+            "key": "matched_tracks",
+            "type": "number"
+          },
+          {
+            "key": "unmatched_files",
+            "type": "number"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,1321 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "name": "JewelBox",
+  "description": {
+    "en": "Your JewelBox CD collection in Gladys: counters, loans, players, widgets and scenes.",
+    "fr": "Votre collection de CD JewelBox dans Gladys : compteurs, prêts, lecteurs, widgets et scènes."
+  },
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/william-de71/gladys-jewelbox:0.1.0",
+  "gladys_version": ">=5.1.0",
+  "categories": ["multimedia"],
+  "cover_image": "https://raw.githubusercontent.com/William-De71/gladys-jewelbox/main/cover.jpg",
+  "transports": ["local"],
+  "network_discovery": [
+    {
+      "type": "mdns",
+      "service": "_jewelbox._tcp"
+    }
+  ],
+  "config_schema": [
+    {
+      "key": "intro",
+      "type": "section",
+      "label": {
+        "en": "Before you start",
+        "fr": "Avant de commencer"
+      },
+      "description": {
+        "en": "JewelBox Music Library is found on the local network by itself (mDNS, “_jewelbox._tcp”): leave the address empty, save, then use “Test the connection”. Type the address only if JewelBox is not found, for example when it runs in Docker without “network_mode: host” (multicast does not cross the Docker bridge). Nothing leaves the local network.",
+        "fr": "JewelBox Music Library est trouvé tout seul sur le réseau local (mDNS, « _jewelbox._tcp ») : laissez l’adresse vide, enregistrez, puis utilisez « Tester la connexion ». Saisissez l’adresse seulement si JewelBox n’est pas trouvé, par exemple s’il tourne dans Docker sans « network_mode: host » (le multicast ne traverse pas le pont Docker). Rien ne sort du réseau local."
+      },
+      "links": [
+        {
+          "url": "https://github.com/William-De71/Jewelbox-Music-Library",
+          "label": {
+            "en": "JewelBox Music Library",
+            "fr": "JewelBox Music Library"
+          }
+        }
+      ]
+    },
+    {
+      "key": "server_url",
+      "type": "string",
+      "required": false,
+      "label": {
+        "en": "Server address (optional)",
+        "fr": "Adresse du serveur (facultatif)"
+      },
+      "placeholder": {
+        "en": "http://192.168.1.10:3001",
+        "fr": "http://192.168.1.10:3001"
+      },
+      "description": {
+        "en": "Empty: found by mDNS. A host alone gets http:// and port 3001.",
+        "fr": "Vide : trouvé par mDNS. Un nom d’hôte seul reçoit http:// et le port 3001."
+      }
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "default": "fr",
+      "required": false,
+      "label": {
+        "en": "Language of the texts",
+        "fr": "Langue des textes"
+      },
+      "description": {
+        "en": "Language of the device and feature names, of the status messages and of the texts the scene actions return (Gladys does not tell the integration the language of the user).",
+        "fr": "Langue des noms d’appareils et de fonctionnalités, des messages d’état et des textes renvoyés par les actions de scène (Gladys ne transmet pas la langue de l’utilisateur à l’intégration)."
+      },
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français"
+          }
+        }
+      ]
+    },
+    {
+      "key": "loan_reminder_days",
+      "type": "number",
+      "default": 30,
+      "min": 1,
+      "max": 365,
+      "required": false,
+      "label": {
+        "en": "Loan reminder (days)",
+        "fr": "Rappel de prêt (jours)"
+      },
+      "description": {
+        "en": "A loan older than this fires the “Loan overdue” trigger, once per loan, and shows in orange in the Loans widget.",
+        "fr": "Un prêt plus ancien déclenche « Prêt en retard », une fois par prêt, et s’affiche en orange dans le widget Prêts."
+      }
+    },
+    {
+      "key": "players_max_age_days",
+      "type": "number",
+      "default": 90,
+      "min": 1,
+      "max": 3650,
+      "required": false,
+      "label": {
+        "en": "Players shown (days)",
+        "fr": "Lecteurs proposés (jours)"
+      },
+      "description": {
+        "en": "The Discover tab offers the players used in the last days only (an old browser keeps its queue for ever).",
+        "fr": "L’onglet Découverte ne propose que les lecteurs utilisés ces derniers jours (un vieux navigateur garde sa file pour toujours)."
+      }
+    }
+  ],
+  "actions": [
+    {
+      "key": "test_connection",
+      "timeout_seconds": 30,
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion"
+      },
+      "description": {
+        "en": "Finds the JewelBox server, reads the collection and the players, and refreshes the Discover tab.",
+        "fr": "Cherche le serveur JewelBox, lit la collection et les lecteurs, et met à jour l’onglet Découverte."
+      }
+    }
+  ],
+  "widgets": [
+    {
+      "key": "now_playing",
+      "icon": "music",
+      "label": {
+        "en": "JewelBox player",
+        "fr": "Lecteur JewelBox"
+      },
+      "description": {
+        "en": "The track a JewelBox player plays, with its cover.",
+        "fr": "Le titre que lit un lecteur JewelBox, avec sa pochette."
+      },
+      "settings": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "A JewelBox player created in Gladys. Leave empty for the one playing (or the last one used).",
+            "fr": "Un lecteur JewelBox créé dans Gladys. Laissez vide pour celui qui joue (ou le dernier utilisé)."
+          }
+        }
+      ]
+    },
+    {
+      "key": "collection",
+      "icon": "disc",
+      "label": {
+        "en": "CD collection",
+        "fr": "Collection de CD"
+      },
+      "description": {
+        "en": "Albums, wish list, loans, artists, hours of music, albums by decade and top genres.",
+        "fr": "Albums, liste de souhaits, prêts, artistes, heures de musique, albums par décennie et genres phares."
+      }
+    },
+    {
+      "key": "loans",
+      "icon": "share-2",
+      "label": {
+        "en": "Lent albums",
+        "fr": "Albums prêtés"
+      },
+      "description": {
+        "en": "Who has which album, since when.",
+        "fr": "Qui a quel album, depuis quand."
+      }
+    },
+    {
+      "key": "album_of_the_day",
+      "icon": "sun",
+      "label": {
+        "en": "Album of the day",
+        "fr": "Album du jour"
+      },
+      "description": {
+        "en": "The suggestion of the day of JewelBox, or another album drawn at random.",
+        "fr": "La suggestion du jour de JewelBox, ou un autre album tiré au hasard."
+      },
+      "action_timeout_seconds": 15
+    },
+    {
+      "key": "recently_added",
+      "icon": "plus-circle",
+      "label": {
+        "en": "Recently added",
+        "fr": "Derniers ajouts"
+      },
+      "description": {
+        "en": "The covers of the latest albums added.",
+        "fr": "Les pochettes des derniers albums ajoutés."
+      },
+      "settings": [
+        {
+          "key": "list",
+          "type": "select",
+          "default": "all",
+          "required": false,
+          "label": {
+            "en": "Albums",
+            "fr": "Albums"
+          },
+          "options": [
+            {
+              "value": "all",
+              "label": {
+                "en": "Collection and wish list",
+                "fr": "Collection et liste de souhaits"
+              }
+            },
+            {
+              "value": "owned",
+              "label": {
+                "en": "Collection only",
+                "fr": "Collection seulement"
+              }
+            },
+            {
+              "value": "wanted",
+              "label": {
+                "en": "Wish list only",
+                "fr": "Liste de souhaits seulement"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "scene_triggers": [
+    {
+      "key": "album_added",
+      "label": {
+        "en": "JewelBox: album added",
+        "fr": "JewelBox : album ajouté"
+      },
+      "description": {
+        "en": "An album is added to the collection or to the wish list, or a wished album joins the collection. Checked every minute.",
+        "fr": "Un album est ajouté à la collection ou à la liste de souhaits, ou un album souhaité rejoint la collection. Vérifié chaque minute."
+      },
+      "fields": [
+        {
+          "key": "list",
+          "type": "select",
+          "required": false,
+          "label": {
+            "en": "List",
+            "fr": "Liste"
+          },
+          "description": {
+            "en": "Leave empty for both.",
+            "fr": "Laissez vide pour les deux."
+          },
+          "options": [
+            {
+              "value": "owned",
+              "label": {
+                "en": "Collection",
+                "fr": "Collection"
+              }
+            },
+            {
+              "value": "wanted",
+              "label": {
+                "en": "Wish list",
+                "fr": "Liste de souhaits"
+              }
+            }
+          ]
+        }
+      ],
+      "variables": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "list",
+          "type": "string",
+          "label": {
+            "en": "List (owned / wanted)",
+            "fr": "Liste (owned / wanted)"
+          }
+        },
+        {
+          "key": "from_wishlist",
+          "type": "boolean",
+          "label": {
+            "en": "Came from the wish list",
+            "fr": "Venait de la liste de souhaits"
+          }
+        }
+      ]
+    },
+    {
+      "key": "album_lent",
+      "label": {
+        "en": "JewelBox: album lent",
+        "fr": "JewelBox : album prêté"
+      },
+      "description": {
+        "en": "An album is lent to someone. Checked every minute; a loan made by a scene does not fire it.",
+        "fr": "Un album est prêté à quelqu’un. Vérifié chaque minute ; un prêt fait par une scène ne le déclenche pas."
+      },
+      "fields": [
+        {
+          "key": "borrower",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          },
+          "description": {
+            "en": "Exactly as typed in JewelBox. Leave empty for anyone.",
+            "fr": "Exactement comme saisi dans JewelBox. Laissez vide pour tout le monde."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "borrower",
+          "type": "string",
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          }
+        },
+        {
+          "key": "days",
+          "type": "number",
+          "label": {
+            "en": "Days of loan",
+            "fr": "Jours de prêt"
+          }
+        }
+      ]
+    },
+    {
+      "key": "album_returned",
+      "label": {
+        "en": "JewelBox: album returned",
+        "fr": "JewelBox : album rendu"
+      },
+      "description": {
+        "en": "A lent album is back. Checked every minute; a return made by a scene does not fire it.",
+        "fr": "Un album prêté est rendu. Vérifié chaque minute ; un retour fait par une scène ne le déclenche pas."
+      },
+      "fields": [
+        {
+          "key": "borrower",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          },
+          "description": {
+            "en": "Exactly as typed in JewelBox. Leave empty for anyone.",
+            "fr": "Exactement comme saisi dans JewelBox. Laissez vide pour tout le monde."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "borrower",
+          "type": "string",
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          }
+        },
+        {
+          "key": "days",
+          "type": "number",
+          "label": {
+            "en": "Days of loan",
+            "fr": "Jours de prêt"
+          }
+        }
+      ]
+    },
+    {
+      "key": "loan_overdue",
+      "label": {
+        "en": "JewelBox: loan overdue",
+        "fr": "JewelBox : prêt en retard"
+      },
+      "description": {
+        "en": "A loan passes the reminder delay of the configuration (30 days by default). Once per loan.",
+        "fr": "Un prêt dépasse le délai de rappel de la configuration (30 jours par défaut). Une fois par prêt."
+      },
+      "fields": [
+        {
+          "key": "borrower",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          },
+          "description": {
+            "en": "Exactly as typed in JewelBox. Leave empty for anyone.",
+            "fr": "Exactement comme saisi dans JewelBox. Laissez vide pour tout le monde."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "borrower",
+          "type": "string",
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          }
+        },
+        {
+          "key": "days",
+          "type": "number",
+          "label": {
+            "en": "Days of loan",
+            "fr": "Jours de prêt"
+          }
+        }
+      ]
+    },
+    {
+      "key": "playback_started",
+      "label": {
+        "en": "JewelBox: playback started",
+        "fr": "JewelBox : lecture démarrée"
+      },
+      "description": {
+        "en": "A player starts playing (deduced from the positions it saves, 10 to 30 s late).",
+        "fr": "Un lecteur commence à jouer (déduit des positions qu’il enregistre, avec 10 à 30 s de retard)."
+      },
+      "fields": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "A JewelBox player created in Gladys. Leave empty for any player.",
+            "fr": "Un lecteur JewelBox créé dans Gladys. Laissez vide pour tous les lecteurs."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "player",
+          "type": "string",
+          "label": {
+            "en": "Player (device)",
+            "fr": "Lecteur (appareil)"
+          }
+        },
+        {
+          "key": "player_name",
+          "type": "string",
+          "label": {
+            "en": "Player name",
+            "fr": "Nom du lecteur"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Track",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "album",
+          "type": "string",
+          "label": {
+            "en": "Album",
+            "fr": "Album"
+          }
+        }
+      ]
+    },
+    {
+      "key": "playback_stopped",
+      "label": {
+        "en": "JewelBox: playback stopped",
+        "fr": "JewelBox : lecture arrêtée"
+      },
+      "description": {
+        "en": "A player stops: pause, closed, end of the queue (up to a minute late).",
+        "fr": "Un lecteur s’arrête : pause, fermeture, fin de la file (jusqu’à une minute de retard)."
+      },
+      "fields": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "A JewelBox player created in Gladys. Leave empty for any player.",
+            "fr": "Un lecteur JewelBox créé dans Gladys. Laissez vide pour tous les lecteurs."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "player",
+          "type": "string",
+          "label": {
+            "en": "Player (device)",
+            "fr": "Lecteur (appareil)"
+          }
+        },
+        {
+          "key": "player_name",
+          "type": "string",
+          "label": {
+            "en": "Player name",
+            "fr": "Nom du lecteur"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Track",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "album",
+          "type": "string",
+          "label": {
+            "en": "Album",
+            "fr": "Album"
+          }
+        }
+      ]
+    },
+    {
+      "key": "track_changed",
+      "label": {
+        "en": "JewelBox: new track",
+        "fr": "JewelBox : nouveau titre"
+      },
+      "description": {
+        "en": "A playing player moves to another track.",
+        "fr": "Un lecteur en lecture passe à un autre titre."
+      },
+      "fields": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "A JewelBox player created in Gladys. Leave empty for any player.",
+            "fr": "Un lecteur JewelBox créé dans Gladys. Laissez vide pour tous les lecteurs."
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          },
+          "description": {
+            "en": "Exactly as in JewelBox. Leave empty for any artist.",
+            "fr": "Exactement comme dans JewelBox. Laissez vide pour tous les artistes."
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "player",
+          "type": "string",
+          "label": {
+            "en": "Player (device)",
+            "fr": "Lecteur (appareil)"
+          }
+        },
+        {
+          "key": "player_name",
+          "type": "string",
+          "label": {
+            "en": "Player name",
+            "fr": "Nom du lecteur"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Track",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "album",
+          "type": "string",
+          "label": {
+            "en": "Album",
+            "fr": "Album"
+          }
+        }
+      ]
+    }
+  ],
+  "scene_actions": [
+    {
+      "key": "get_now_playing",
+      "label": {
+        "en": "JewelBox: what is playing",
+        "fr": "JewelBox : titre en cours"
+      },
+      "timeout_seconds": 15,
+      "description": {
+        "en": "The track of a player, and whether it plays.",
+        "fr": "Le titre d’un lecteur, et s’il joue."
+      },
+      "fields": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "Leave empty for the one playing (or the last one used).",
+            "fr": "Laissez vide pour celui qui joue (ou le dernier utilisé)."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "player_name",
+          "type": "string",
+          "label": {
+            "en": "Player name",
+            "fr": "Nom du lecteur"
+          }
+        },
+        {
+          "key": "playing",
+          "type": "boolean",
+          "label": {
+            "en": "Playing",
+            "fr": "En lecture"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Track",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "album",
+          "type": "string",
+          "label": {
+            "en": "Album",
+            "fr": "Album"
+          }
+        }
+      ]
+    },
+    {
+      "key": "random_album",
+      "label": {
+        "en": "JewelBox: random album",
+        "fr": "JewelBox : album au hasard"
+      },
+      "timeout_seconds": 15,
+      "description": {
+        "en": "An album drawn from the collection (wish list excluded).",
+        "fr": "Un album tiré au hasard dans la collection (liste de souhaits exclue)."
+      },
+      "fields": [
+        {
+          "key": "genre",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          },
+          "description": {
+            "en": "Only this genre (as in JewelBox, case ignored). Leave empty for any genre.",
+            "fr": "Seulement ce genre (comme dans JewelBox, sans tenir compte des majuscules). Laissez vide pour tous les genres."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Artist – Title (year)",
+            "fr": "Artiste – Titre (année)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "album_of_the_day",
+      "label": {
+        "en": "JewelBox: album of the day",
+        "fr": "JewelBox : album du jour"
+      },
+      "timeout_seconds": 15,
+      "description": {
+        "en": "The first suggestion of the day of JewelBox (the same as on its home screen).",
+        "fr": "La première suggestion du jour de JewelBox (la même que sur son écran d’accueil)."
+      },
+      "outputs": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "summary",
+          "type": "string",
+          "label": {
+            "en": "Artist – Title (year)",
+            "fr": "Artiste – Titre (année)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "lend_album",
+      "label": {
+        "en": "JewelBox: lend an album",
+        "fr": "JewelBox : prêter un album"
+      },
+      "timeout_seconds": 15,
+      "description": {
+        "en": "Marks an album lent to someone, as the Lend button of JewelBox does.",
+        "fr": "Marque un album prêté à quelqu’un, comme le bouton Prêter de JewelBox."
+      },
+      "fields": [
+        {
+          "key": "album",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Album",
+            "fr": "Album"
+          },
+          "description": {
+            "en": "The album id (the number in its JewelBox address, /album/123) or its exact title. Scene variables are allowed.",
+            "fr": "Le numéro de l’album (celui de son adresse dans JewelBox, /album/123) ou son titre exact. Les variables de scène sont acceptées."
+          }
+        },
+        {
+          "key": "borrower",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          },
+          "description": {
+            "en": "Who borrows it. Scene variables are allowed.",
+            "fr": "Qui l’emprunte. Les variables de scène sont acceptées."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "borrower",
+          "type": "string",
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          }
+        }
+      ]
+    },
+    {
+      "key": "return_album",
+      "label": {
+        "en": "JewelBox: album returned",
+        "fr": "JewelBox : album rendu"
+      },
+      "timeout_seconds": 15,
+      "description": {
+        "en": "Marks a lent album back on the shelf.",
+        "fr": "Marque un album prêté comme rendu."
+      },
+      "fields": [
+        {
+          "key": "album",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Album",
+            "fr": "Album"
+          },
+          "description": {
+            "en": "The album id (the number in its JewelBox address, /album/123) or its exact title. Scene variables are allowed.",
+            "fr": "Le numéro de l’album (celui de son adresse dans JewelBox, /album/123) ou son titre exact. Les variables de scène sont acceptées."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "album_id",
+          "type": "number",
+          "label": {
+            "en": "Album id",
+            "fr": "Numéro de l’album"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Title",
+            "fr": "Titre"
+          }
+        },
+        {
+          "key": "artist",
+          "type": "string",
+          "label": {
+            "en": "Artist",
+            "fr": "Artiste"
+          }
+        },
+        {
+          "key": "year",
+          "type": "number",
+          "label": {
+            "en": "Year",
+            "fr": "Année"
+          }
+        },
+        {
+          "key": "genre",
+          "type": "string",
+          "label": {
+            "en": "Genre",
+            "fr": "Genre"
+          }
+        },
+        {
+          "key": "label",
+          "type": "string",
+          "label": {
+            "en": "Record label",
+            "fr": "Label"
+          }
+        },
+        {
+          "key": "borrower",
+          "type": "string",
+          "label": {
+            "en": "Borrower",
+            "fr": "Emprunteur"
+          }
+        },
+        {
+          "key": "days",
+          "type": "number",
+          "label": {
+            "en": "Days of loan",
+            "fr": "Jours de prêt"
+          }
+        }
+      ]
+    },
+    {
+      "key": "scan_library",
+      "label": {
+        "en": "JewelBox: scan the music library",
+        "fr": "JewelBox : scanner la bibliothèque"
+      },
+      "timeout_seconds": 120,
+      "description": {
+        "en": "Scans the music folder of JewelBox again and waits for the end (100 s at most).",
+        "fr": "Relance le scan du dossier de musique de JewelBox et attend la fin (100 s au plus)."
+      },
+      "outputs": [
+        {
+          "key": "finished",
+          "type": "boolean",
+          "label": {
+            "en": "Finished",
+            "fr": "Terminé"
+          }
+        },
+        {
+          "key": "matched_albums",
+          "type": "number",
+          "label": {
+            "en": "Albums matched",
+            "fr": "Albums associés"
+          }
+        },
+        {
+          "key": "matched_tracks",
+          "type": "number",
+          "label": {
+            "en": "Tracks matched",
+            "fr": "Pistes associées"
+          }
+        },
+        {
+          "key": "unmatched_files",
+          "type": "number",
+          "label": {
+            "en": "Files not matched",
+            "fr": "Fichiers non associés"
+          }
+        }
+      ]
+    }
+  ]
+}
