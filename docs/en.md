@@ -8,7 +8,7 @@ This is a personal integration, not listed in the store: install it from the URL
 
 ## Prerequisites
 
-- Gladys 5.1.0 or later.
+- Gladys 5.3.0 or later.
 - JewelBox Music Library 1.17.0 or later on the same network, with its mDNS announcement on (the default). JewelBox in Docker: `network_mode: host`, or type its address in the configuration.
 
 ## Configuration
@@ -29,9 +29,9 @@ Save, then click **Test the connection**: it finds the server and tells the coll
 In the **Discover** tab, add:
 
 - **JewelBox collection**: albums, wish list, lent out, artists, average rating, playing time (hours), oldest loan (days). Read every minute.
-- **One device per player** (web app, desktop, Android): playback, track, artist, album. Read every 10 s.
+- **One device per player** (web app, desktop, Android): playback, track, artist, album, and the now playing of Gladys music players (title, artist, album, cover, duration, position). Read every 10 s, published only when it changes.
 
-A player is “playing” when its position moves at its usual pace: JewelBox stores no play / pause state, so a pause is seen 10 to 50 s late. The players cannot be controlled from Gladys.
+A player is “playing” when its position moves at its usual pace: JewelBox stores no play / pause state, so a pause is seen 10 to 50 s late. The players cannot be controlled from Gladys: the “devices in the room” widget shows what they play, the music box of the dashboard does not offer them. A player added before this version gets its new features with the **Update** button of the Discover tab.
 
 ### Dashboard widgets
 

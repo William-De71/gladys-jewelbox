@@ -25,6 +25,12 @@ const TEXTS = {
   feature_track: { en: 'Track', fr: 'Titre' },
   feature_artist: { en: 'Artist', fr: 'Artiste' },
   feature_album: { en: 'Album', fr: 'Album' },
+  feature_music_title: { en: 'Now playing: title', fr: 'En cours : titre' },
+  feature_music_artist: { en: 'Now playing: artist', fr: 'En cours : artiste' },
+  feature_music_album: { en: 'Now playing: album', fr: 'En cours : album' },
+  feature_music_artwork: { en: 'Now playing: cover', fr: 'En cours : pochette' },
+  feature_music_duration: { en: 'Track duration', fr: 'Durée du titre' },
+  feature_music_position: { en: 'Position in the track', fr: 'Position dans le titre' },
 
   // Connection status (Integrations → JewelBox).
   statusNoServer: {

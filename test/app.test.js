@@ -463,6 +463,86 @@ test('players: playing, new track, pause write, stop after the pace of the playe
   assert.equal(value('track'), 'WE KNOW WHERE YOU FUCKING LIVE', 'the last track stays');
 });
 
+test('now playing: music features in one batch, the position on events only, artwork by key', async (t) => {
+  // publishNowPlaying measures the drift of the position on Date: the same
+  // fake clock as the app and the server.
+  t.mock.timers.enable({ apis: ['Date'], now: START });
+  const ctx = await setup(t);
+  const step = (ms) => {
+    ctx.advance(ms);
+    t.mock.timers.tick(ms);
+  };
+  const feature = (key) => `${PLAYER}:${key}`;
+  const value = (key) => ctx.gladys.fake.lastState(feature(key));
+  const positions = () =>
+    ctx.gladys.fake.states.filter(
+      (s) => s.device_feature_external_id === feature('music_position'),
+    );
+  await ctx.app.playerRound();
+  assert.equal(value('music_title'), undefined, 'nothing for a player not created');
+
+  await create(ctx, PLAYER);
+  await ctx.app.playerRound();
+  assert.equal(value('playing'), 1);
+  assert.equal(value('music_title'), 'Revelation');
+  assert.equal(value('music_artist'), 'Marilyn Manson');
+  assert.equal(value('music_album'), 'Heaven Upside Down');
+  assert.equal(value('music_duration'), 300);
+  assert.equal(value('music_position'), 17, 'saved 5 s ago at 12 s');
+  const key = value('music_artwork');
+  assert.match(key, /^art-[0-9a-f]{12}$/);
+  await flush(ctx);
+  assert.equal(value('track'), 'Revelation', 'the text features of 0.1.0 stay');
+
+  // Continuous play: the rounds publish nothing new, the dashboard extrapolates.
+  const queue = ctx.server.state.queues.get(PLAYER_ID);
+  const before = ctx.gladys.fake.states.length;
+  for (const position of [47, 87]) {
+    step(30000);
+    Object.assign(queue, { updatedAt: ctx.now(), position });
+    await ctx.app.playerRound();
+    step(10000);
+    await ctx.app.playerRound();
+  }
+  await flush(ctx);
+  assert.equal(ctx.gladys.fake.states.length, before, 'no position on a timer');
+
+  // A seek is published (more than 3 s off), at the pace of the player.
+  step(30000);
+  Object.assign(queue, { updatedAt: ctx.now(), position: 200 });
+  await ctx.app.playerRound();
+  assert.equal(value('playing'), 1);
+  assert.equal(value('music_position'), 200);
+
+  // A new track: one batch, with its position.
+  step(10000);
+  Object.assign(queue, { updatedAt: ctx.now(), index: 1, position: 2 });
+  await ctx.app.playerRound();
+  const batch = ctx.gladys.fake.bodies('POST', '/state').at(-1).states;
+  assert.deepEqual(batch.map((s) => s.device_feature_external_id.split(':').at(-1)).sort(), [
+    'music_duration',
+    'music_position',
+    'music_title',
+  ]);
+  assert.equal(value('music_title'), 'WE KNOW WHERE YOU FUCKING LIVE');
+  assert.equal(positions().at(-1).state, 2);
+
+  // The artwork: the cover of the server behind the key, nothing else.
+  const image = await ctx.gladys.fake.musicGetArtwork(key);
+  assert.equal(image.success, true, JSON.stringify(image));
+  assert.equal(image.data.image, ctx.server.state.coverBytes.toString('base64'));
+  assert.equal((await ctx.gladys.fake.musicGetArtwork('art-000000000000')).success, false);
+
+  // The queue cleared: texts emptied explicitly, the artwork too.
+  ctx.server.state.queues.delete(PLAYER_ID);
+  step(10000);
+  await ctx.app.playerRound();
+  assert.equal(value('playing'), 0);
+  assert.equal(value('music_title'), '');
+  assert.equal(value('music_artwork'), '');
+  assert.equal(value('music_position'), 0);
+});
+
 test('players: an old queue at first sight is stopped; a queue cleared is stopped', async (t) => {
   const ctx = await setup(t, { queue: { updatedAt: START - 3600 * 1000 } });
   await create(ctx, PLAYER);

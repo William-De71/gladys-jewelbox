@@ -5,7 +5,7 @@
 [![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/William-De71/gladys-jewelbox?sort=semver)](https://github.com/William-De71/gladys-jewelbox/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/William-De71/gladys-jewelbox/release.yml?branch=main&label=CI)](https://github.com/William-De71/gladys-jewelbox/actions/workflows/release.yml)
-[![Gladys](https://img.shields.io/badge/Gladys-%E2%89%A5%205.1.0-2f6fb5)](https://gladysassistant.com)
+[![Gladys](https://img.shields.io/badge/Gladys-%E2%89%A5%205.3.0-2f6fb5)](https://gladysassistant.com)
 
 ![JewelBox for Gladys Assistant](cover.jpg)
 
@@ -16,7 +16,7 @@ Your [JewelBox Music Library](https://github.com/William-De71/Jewelbox-Music-Lib
 ## Features
 
 - **Collection device**: albums, wish list, albums lent out, artists, average rating, hours of music, days of the oldest loan (history and charts of Gladys).
-- **One device per JewelBox player** (web app, desktop player, Android app): playing or not, track, artist, album. Read-only.
+- **One device per JewelBox player** (web app, desktop player, Android app): playing or not, and the now playing of the music players of Gladys 5.3.0 (title, artist, album, cover, duration, position). Read-only.
 - **Scene triggers**: album added (collection or wish list, or a wish come true), album lent, album returned, loan overdue, playback started / stopped, new track.
 - **Scene actions**: what is playing, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
 - **Five dashboard widgets**: player with its cover, collection, lent albums, album of the day, recently added.
@@ -60,18 +60,27 @@ sequenceDiagram
 
 JewelBox does not store a play / pause state: each player saves its queue on the server, with the position, every 10 s (web app) or 30 s (desktop and Android), and once more at a pause. The integration deduces the state from these writes: a new track or a position moving at the usual pace is “playing”, an early write or no write for the pace + 20 s is “stopped”. A pause is therefore seen 10 to 50 s late. The players cannot be controlled from Gladys: JewelBox has no command channel for now.
 
+### Now playing
+
+A player also publishes the `music` features of Gladys 5.3.0: title, artist, album, cover, duration and position. They change only on an event (a new track, a pause, a seek), never on a timer: the position is a sample that Gladys extrapolates while the player plays. The cover is served by the integration behind a key (the browser never loads the JewelBox server), at most 300 KB. The “devices in the room” widget shows them; the music box of the dashboard does not offer these players, since it needs a player that obeys play / pause.
+
 ## Devices and features
 
-| Device              | Feature                              | Category / type               | Notes              |
-| ------------------- | ------------------------------------ | ----------------------------- | ------------------ |
-| JewelBox collection | Albums, Wish list, Lent out, Artists | `counter-sensor` / `integer`  | from `/api/stats`  |
-| JewelBox collection | Average rating                       | `counter-sensor` / `decimal`  | 1 to 5             |
-| JewelBox collection | Playing time                         | `duration` / `decimal`, hours | whole collection   |
-| JewelBox collection | Oldest loan                          | `duration` / `integer`, days  | 0 without loan     |
-| JewelBox player     | Playback                             | `music` / `playback_state`    | deduced, read-only |
-| JewelBox player     | Track, Artist, Album                 | `text` / `text`               | the current track  |
+| Device              | Feature                               | Category / type                           | Notes                   |
+| ------------------- | ------------------------------------- | ----------------------------------------- | ----------------------- |
+| JewelBox collection | Albums, Wish list, Lent out, Artists  | `counter-sensor` / `integer`              | from `/api/stats`       |
+| JewelBox collection | Average rating                        | `counter-sensor` / `decimal`              | 1 to 5                  |
+| JewelBox collection | Playing time                          | `duration` / `decimal`, hours             | whole collection        |
+| JewelBox collection | Oldest loan                           | `duration` / `integer`, days              | 0 without loan          |
+| JewelBox player     | Playback                              | `music` / `playback_state`                | deduced, read-only      |
+| JewelBox player     | Track, Artist, Album                  | `text` / `text`                           | the current track       |
+| JewelBox player     | Now playing: title, artist, album     | `music` / `title`, `artist`, `album`      | empty when no queue     |
+| JewelBox player     | Now playing: cover                    | `music` / `artwork`                       | an image key            |
+| JewelBox player     | Track duration, Position in the track | `music` / `duration`, `position`, seconds | position on events only |
 
 External ids are built on the identifiers JewelBox keeps: the `server_id` of the server and the device id of each player, never an address or a label.
+
+The `music` features were added in a later version: a player created before gets them with the **Update** button of the Discover tab; its other features, scenes and widgets are unchanged.
 
 ## Scene triggers, actions and widgets
 
@@ -102,7 +111,7 @@ Examples:
 
 ## Prerequisites
 
-- Gladys Assistant **5.1.0** or later (widgets and scenes). Older instances cannot install the integration.
+- Gladys Assistant **5.3.0** or later (music players). Older instances cannot install the integration.
 - JewelBox Music Library 1.17.0 or later on the same local network.
 - For the mDNS discovery: JewelBox announces `_jewelbox._tcp` (on by default). In Docker, use `network_mode: host`, otherwise type its address.
 

@@ -9,13 +9,16 @@
 //                    one per created player whose queue changed)
 //   collection       every minute: active collection, statistics, latest
 //   rounds           albums, wish list, loans (5 requests)
-//   states           counters of the collection, state and track of the
-//                    players (src/states.js)
+//   states           counters of the collection, track of the players
+//                    (src/states.js); the now playing of the players
+//                    (`music` features) through publishNowPlaying of the
+//                    SDK, on changes only
 //   scene events     transitions seen by the rounds only (src/scenes.js)
 //   scene actions    now playing, random album, album of the day, lend,
 //                    return, library scan
 //   widgets          now playing, collection, loans, album of the day,
 //                    recently added
+//   images           covers by key, for the widgets and the player artwork
 //   status           no server found, server unreachable
 //
 // /data holds the address of the server and the loans already reminded.
@@ -35,6 +38,8 @@ import {
   collectionIds,
   collectionValues,
   isPlayerId,
+  nowPlayingFeatureIds,
+  nowPlayingOf,
   parseExternalId,
   playerIds,
   playerNames,
@@ -62,6 +67,7 @@ import {
   buildNowPlayingWidget,
   buildRecentlyAddedWidget,
   coverFile,
+  coverKey,
 } from './widgets.js';
 import { LANGUAGES, all, t } from './i18n.js';
 import { displayTimeZone } from './time.js';
@@ -136,6 +142,7 @@ export function createApp(gladys, deps = {}) {
   // Players.
   let players = []; // the list of the server
   let serverNow = 0;
+  let serverOffset = 0; // server clock - container clock (ms)
   const playback = new Map(); // device id -> nextPlayback()
   const observations = new Map(); // device id -> observationOf()
 
@@ -402,10 +409,21 @@ export function createApp(gladys, deps = {}) {
       states.push(ids.feature(key), value);
   };
 
-  const pushPlayer = (id) => {
+  const pushPlayer = async (id) => {
     const ids = playerIds(gladys, id);
-    for (const [key, value] of playerValues(playback.get(id) ?? null))
-      states.push(ids.feature(key), value);
+    const current = playback.get(id) ?? null;
+    for (const [key, value] of playerValues(current)) states.push(ids.feature(key), value);
+    // The playback state and the `music` features: one batch of what
+    // changed, the position only on a change or a drift (never a stream).
+    const snapshot = nowPlayingOf(current, now() + serverOffset);
+    if (!snapshot || !created.has(ids.device)) return;
+    await safely(
+      () =>
+        gladys.publishNowPlaying(ids.device, snapshot, {
+          featureExternalIds: nowPlayingFeatureIds(gladys, id),
+        }),
+      'publishing the now playing',
+    );
   };
 
   // --- Player rounds ---------------------------------------------------------------------------
@@ -425,6 +443,7 @@ export function createApp(gladys, deps = {}) {
     const answer = await call((url) => client.players(url));
     players = answer.devices;
     serverNow = answer.serverNow;
+    serverOffset = serverNow - now();
     const byId = new Map(players.map((player) => [player.device_id, player]));
     for (const id of createdOf(DEVICE_TYPES.PLAYER)) {
       const entry = byId.get(id);
@@ -462,7 +481,7 @@ export function createApp(gladys, deps = {}) {
           );
         }
       }
-      pushPlayer(id);
+      await pushPlayer(id);
     }
     refreshIfChanged(
       WIDGETS.NOW_PLAYING,
@@ -634,8 +653,8 @@ export function createApp(gladys, deps = {}) {
     return parsed;
   };
 
-  const pushDevice = (parsed) => {
-    if (parsed.type === DEVICE_TYPES.PLAYER) pushPlayer(parsed.id);
+  const pushDevice = async (parsed) => {
+    if (parsed.type === DEVICE_TYPES.PLAYER) await pushPlayer(parsed.id);
     else if (parsed.id === server?.serverId) pushCollection();
   };
 
@@ -644,7 +663,7 @@ export function createApp(gladys, deps = {}) {
     if (!parsed) return;
     // States published before the creation were thrown away by Gladys.
     states.republish(device.external_id);
-    pushDevice(parsed);
+    await pushDevice(parsed);
     Object.values(WIDGETS).forEach((key) => refreshWidget(key, true));
     if (parsed.type === DEVICE_TYPES.PLAYER) playerRound();
   });
@@ -653,7 +672,7 @@ export function createApp(gladys, deps = {}) {
     const parsed = track(device);
     if (!parsed) return;
     states.republish(device.external_id);
-    pushDevice(parsed);
+    await pushDevice(parsed);
   });
 
   gladys.onDeviceDeleted(async (device) => {
@@ -1002,17 +1021,35 @@ export function createApp(gladys, deps = {}) {
     }),
   );
 
-  gladys.onWidgetGetImage(async (imageKey) => {
-    const file = coverFile(imageKey);
-    if (!file) throw new Error(`Unknown image key: ${imageKey}`);
+  /**
+   * @description The bytes of a cover, as Gladys takes them (widgets and
+   * player artwork share the same bounds).
+   * @param {string} file - `<md5>.<ext>` (coverFile).
+   * @returns {Promise<string>} Raw base64.
+   */
+  const coverImage = async (file) => {
     const { data, type } = await call((url) => client.cover(url, file));
     if (!/^image\/(jpeg|png|webp)/.test(type)) throw new Error(`Not an image: ${type}`);
     if (data.length > MAX_IMAGE_BYTES) {
       throw new Error(
-        `The cover ${file} is too large for a widget (${Math.round(data.length / 1024)} KB)`,
+        `The cover ${file} is too large for Gladys (${Math.round(data.length / 1024)} KB)`,
       );
     }
     return data.toString('base64');
+  };
+
+  gladys.onWidgetGetImage(async (imageKey) => {
+    const file = coverFile(imageKey);
+    if (!file) throw new Error(`Unknown image key: ${imageKey}`);
+    return coverImage(file);
+  });
+
+  // The `artwork` of a player: the SDK keyed the cover path we gave it
+  // (nowPlayingOf); the key leads back to that path only, checked again.
+  gladys.onMusicGetArtwork(async (key) => {
+    const file = coverFile(coverKey(gladys.artworkUrls?.get(key)));
+    if (!file) throw new Error(`Unknown artwork key: ${key}`);
+    return coverImage(file);
   });
 
   // --- Lifecycle -------------------------------------------------------------------------------

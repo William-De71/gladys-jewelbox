@@ -5,7 +5,7 @@
 [![Licence : Apache-2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg)](LICENSE)
 [![Dernière version](https://img.shields.io/github/v/release/William-De71/gladys-jewelbox?sort=semver)](https://github.com/William-De71/gladys-jewelbox/releases)
 [![CI](https://img.shields.io/github/actions/workflow/status/William-De71/gladys-jewelbox/release.yml?branch=main&label=CI)](https://github.com/William-De71/gladys-jewelbox/actions/workflows/release.yml)
-[![Gladys](https://img.shields.io/badge/Gladys-%E2%89%A5%205.1.0-2f6fb5)](https://gladysassistant.com)
+[![Gladys](https://img.shields.io/badge/Gladys-%E2%89%A5%205.3.0-2f6fb5)](https://gladysassistant.com)
 
 ![JewelBox pour Gladys Assistant](cover.jpg)
 
@@ -16,7 +16,7 @@ Votre collection de CD [JewelBox Music Library](https://github.com/William-De71/
 ## Fonctionnalités
 
 - **Appareil Collection** : albums, liste de souhaits, albums prêtés, artistes, note moyenne, heures de musique, jours du plus ancien prêt (historique et graphiques de Gladys).
-- **Un appareil par lecteur JewelBox** (appli web, lecteur de bureau, appli Android) : en lecture ou non, titre, artiste, album. En lecture seule.
+- **Un appareil par lecteur JewelBox** (appli web, lecteur de bureau, appli Android) : en lecture ou non, et le « en cours de lecture » des lecteurs de musique de Gladys 5.3.0 (titre, artiste, album, pochette, durée, position). En lecture seule.
 - **Déclencheurs de scène** : album ajouté (collection ou liste de souhaits, ou souhait exaucé), album prêté, album rendu, prêt en retard, lecture démarrée / arrêtée, nouveau titre.
 - **Actions de scène** : titre en cours, album au hasard (par genre), album du jour, prêter un album, le marquer rendu, scanner la bibliothèque musicale.
 - **Cinq widgets** : lecteur avec sa pochette, collection, albums prêtés, album du jour, derniers ajouts.
@@ -60,18 +60,27 @@ sequenceDiagram
 
 JewelBox n’enregistre pas d’état lecture / pause : chaque lecteur sauvegarde sa file sur le serveur, avec la position, toutes les 10 s (appli web) ou 30 s (bureau et Android), et une fois de plus à la pause. L’intégration déduit l’état de ces écritures : un nouveau titre ou une position qui avance au rythme habituel signifie « en lecture », une écriture anticipée ou aucune écriture pendant le rythme + 20 s signifie « à l’arrêt ». Une pause est donc vue avec 10 à 50 s de retard. Les lecteurs ne se pilotent pas depuis Gladys : JewelBox n’a pas encore de canal de commande.
 
+### En cours de lecture
+
+Un lecteur publie aussi les fonctionnalités `music` de Gladys 5.3.0 : titre, artiste, album, pochette, durée et position. Elles ne changent que sur un événement (nouveau titre, pause, déplacement dans le titre), jamais sur une minuterie : la position est un relevé que Gladys extrapole tant que le lecteur joue. La pochette est servie par l’intégration derrière une clé (le navigateur ne contacte jamais le serveur JewelBox), 300 Ko au plus. Le widget « appareils de la pièce » les affiche ; la boîte musique du tableau de bord ne propose pas ces lecteurs, car elle demande un lecteur qui obéit à lecture / pause.
+
 ## Appareils et fonctionnalités
 
-| Appareil            | Fonctionnalité                              | Catégorie / type               | Notes                  |
-| ------------------- | ------------------------------------------- | ------------------------------ | ---------------------- |
-| Collection JewelBox | Albums, Liste de souhaits, Prêtés, Artistes | `counter-sensor` / `integer`   | d’après `/api/stats`   |
-| Collection JewelBox | Note moyenne                                | `counter-sensor` / `decimal`   | de 1 à 5               |
-| Collection JewelBox | Durée d’écoute                              | `duration` / `decimal`, heures | toute la collection    |
-| Collection JewelBox | Plus ancien prêt                            | `duration` / `integer`, jours  | 0 sans prêt            |
-| Lecteur JewelBox    | Lecture                                     | `music` / `playback_state`     | déduite, lecture seule |
-| Lecteur JewelBox    | Titre, Artiste, Album                       | `text` / `text`                | le titre en cours      |
+| Appareil            | Fonctionnalité                              | Catégorie / type                           | Notes                            |
+| ------------------- | ------------------------------------------- | ------------------------------------------ | -------------------------------- |
+| Collection JewelBox | Albums, Liste de souhaits, Prêtés, Artistes | `counter-sensor` / `integer`               | d’après `/api/stats`             |
+| Collection JewelBox | Note moyenne                                | `counter-sensor` / `decimal`               | de 1 à 5                         |
+| Collection JewelBox | Durée d’écoute                              | `duration` / `decimal`, heures             | toute la collection              |
+| Collection JewelBox | Plus ancien prêt                            | `duration` / `integer`, jours              | 0 sans prêt                      |
+| Lecteur JewelBox    | Lecture                                     | `music` / `playback_state`                 | déduite, lecture seule           |
+| Lecteur JewelBox    | Titre, Artiste, Album                       | `text` / `text`                            | le titre en cours                |
+| Lecteur JewelBox    | En cours : titre, artiste, album            | `music` / `title`, `artist`, `album`       | vides sans file                  |
+| Lecteur JewelBox    | En cours : pochette                         | `music` / `artwork`                        | une clé d’image                  |
+| Lecteur JewelBox    | Durée du titre, Position dans le titre      | `music` / `duration`, `position`, secondes | position sur événement seulement |
 
 Les identifiants externes reposent sur ce que JewelBox conserve : le `server_id` du serveur et l’identifiant de chaque lecteur, jamais une adresse ni un libellé.
+
+Les fonctionnalités `music` sont arrivées dans une version ultérieure : un lecteur créé avant les reçoit avec le bouton **Mettre à jour** de l’onglet Découverte ; ses autres fonctionnalités, ses scènes et ses widgets ne changent pas.
 
 ## Déclencheurs, actions de scène et widgets
 
@@ -102,7 +111,7 @@ Exemples :
 
 ## Prérequis
 
-- Gladys Assistant **5.1.0** ou plus récent (widgets et scènes). Les instances plus anciennes ne peuvent pas installer l’intégration.
+- Gladys Assistant **5.3.0** ou plus récent (lecteurs de musique). Les instances plus anciennes ne peuvent pas installer l’intégration.
 - JewelBox Music Library 1.17.0 ou plus récent sur le même réseau local.
 - Pour la découverte mDNS : JewelBox annonce `_jewelbox._tcp` (actif par défaut). En Docker, utilisez `network_mode: host`, sinon saisissez son adresse.
 

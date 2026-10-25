@@ -20,6 +20,12 @@
 //     track        title of the current track (text)
 //     artist       its artist (text)
 //     album        its album (text)
+//     music_title     the same now playing as the `music` types of Gladys
+//     music_artist    5.3.0 (title, artist, album, artwork key, duration,
+//     music_album     position), added after 0.1.0 under new keys: the text
+//     music_artwork   features above stay for the scenes that use them
+//     music_duration
+//     music_position
 //
 // Everything is read-only: JewelBox has no way to command a player.
 // No `should_poll`: the integration reads the server itself (players every
@@ -48,6 +54,12 @@ export const PLAYER_FEATURES = {
   TRACK: 'track',
   ARTIST: 'artist',
   ALBUM: 'album',
+  MUSIC_TITLE: 'music_title',
+  MUSIC_ARTIST: 'music_artist',
+  MUSIC_ALBUM: 'music_album',
+  MUSIC_ARTWORK: 'music_artwork',
+  MUSIC_DURATION: 'music_duration',
+  MUSIC_POSITION: 'music_position',
 };
 export const PLAYBACK_STATE = { PLAYING: 1, STOPPED: 0 };
 export const SERVER_PARAM = 'JEWELBOX_SERVER_ID';
@@ -75,6 +87,20 @@ const text = {
   max: 0,
   keep_history: false,
 };
+
+// The now-playing features of the `music` category (Gladys 5.3.0): never
+// historized (the core forces it), all read-only.
+const music = (type) => ({
+  ...base,
+  category: CATEGORIES.MUSIC,
+  type,
+  min: 0,
+  max: 0,
+  keep_history: false,
+});
+// A track longer than a day is not a CD track.
+const MAX_TRACK_SECONDS = 86400;
+const seconds = (type) => ({ ...music(type), unit: UNITS.SECONDS, max: MAX_TRACK_SECONDS });
 
 const COLLECTION_SPECS = [
   [COLLECTION_FEATURES.OWNED, counter],
@@ -123,6 +149,12 @@ const PLAYER_SPECS = [
   [PLAYER_FEATURES.TRACK, text],
   [PLAYER_FEATURES.ARTIST, text],
   [PLAYER_FEATURES.ALBUM, text],
+  [PLAYER_FEATURES.MUSIC_TITLE, music(TYPES.MUSIC.TITLE)],
+  [PLAYER_FEATURES.MUSIC_ARTIST, music(TYPES.MUSIC.ARTIST)],
+  [PLAYER_FEATURES.MUSIC_ALBUM, music(TYPES.MUSIC.ALBUM)],
+  [PLAYER_FEATURES.MUSIC_ARTWORK, music(TYPES.MUSIC.ARTWORK)],
+  [PLAYER_FEATURES.MUSIC_DURATION, seconds(TYPES.MUSIC.DURATION)],
+  [PLAYER_FEATURES.MUSIC_POSITION, seconds(TYPES.MUSIC.POSITION)],
 ];
 
 // A JewelBox device id is a UUID (the players mint it); the server accepts
@@ -265,17 +297,87 @@ export function collectionValues(stats, oldestLoanDays) {
 }
 
 /**
- * @description The values of a player.
+ * @description The values of the text features of a player (the playback
+ * state and the `music` features go through `nowPlayingOf`).
  * @param {object|null} playback - `nextPlayback()`, null when unknown.
- * @returns {Array<[string, number|{ text: string }]>} `[featureKey, value]`.
+ * @returns {Array<[string, { text: string }]>} `[featureKey, value]`.
  */
 export function playerValues(playback) {
   if (!playback) return [];
   const track = playback.track;
   return [
-    [PLAYER_FEATURES.PLAYING, playback.playing ? PLAYBACK_STATE.PLAYING : PLAYBACK_STATE.STOPPED],
     [PLAYER_FEATURES.TRACK, { text: cutText(track?.title) || NO_TEXT }],
     [PLAYER_FEATURES.ARTIST, { text: cutText(track?.artist) || NO_TEXT }],
     [PLAYER_FEATURES.ALBUM, { text: cutText(track?.album) || NO_TEXT }],
   ];
+}
+
+/**
+ * @description The feature external ids of `publishNowPlaying` (type → id):
+ * the playback state is the `playing` feature of 0.1.0.
+ * @param {object} gladys - SDK client.
+ * @param {string} deviceId - JewelBox device id.
+ * @returns {object} The map.
+ */
+export function nowPlayingFeatureIds(gladys, deviceId) {
+  const ids = playerIds(gladys, deviceId);
+  return {
+    [TYPES.MUSIC.PLAYBACK_STATE]: ids.feature(PLAYER_FEATURES.PLAYING),
+    [TYPES.MUSIC.TITLE]: ids.feature(PLAYER_FEATURES.MUSIC_TITLE),
+    [TYPES.MUSIC.ARTIST]: ids.feature(PLAYER_FEATURES.MUSIC_ARTIST),
+    [TYPES.MUSIC.ALBUM]: ids.feature(PLAYER_FEATURES.MUSIC_ALBUM),
+    [TYPES.MUSIC.ARTWORK]: ids.feature(PLAYER_FEATURES.MUSIC_ARTWORK),
+    [TYPES.MUSIC.DURATION]: ids.feature(PLAYER_FEATURES.MUSIC_DURATION),
+    [TYPES.MUSIC.POSITION]: ids.feature(PLAYER_FEATURES.MUSIC_POSITION),
+  };
+}
+
+const COVER_PATH = /^\/covers\/[0-9a-f]{32}\.(jpe?g|png|webp)$/i;
+
+/**
+ * @description The now playing of a player, for `publishNowPlaying`.
+ *
+ * The position is a sample of now: the one the player saved, plus the time
+ * since it saved it while it plays (on the server clock), so the dashboard
+ * extrapolates from the right point. `publishNowPlaying` republishes it only
+ * on a playback or track change, or when it drifts by more than 3 s (a seek).
+ * The playback state stays 0 / 1 (the `playing` feature of 0.1.0 has
+ * `max: 1`, forever): a stopped player is PAUSED, its track kept, and a
+ * player without a queue any more clears the texts (explicit '').
+ * @param {object|null} playback - `nextPlayback()`, null when unknown.
+ * @param {number} serverNow - Now on the server clock (ms).
+ * @returns {object|null} The snapshot, null when unknown.
+ */
+export function nowPlayingOf(playback, serverNow) {
+  if (!playback) return null;
+  const track = playback.track;
+  const playing = playback.playing ? PLAYBACK_STATE.PLAYING : PLAYBACK_STATE.STOPPED;
+  if (!track) {
+    return {
+      playback_state: playing,
+      title: '',
+      artist: '',
+      album: '',
+      artwork_url: null,
+      duration: 0,
+      position: 0,
+    };
+  }
+  const duration = Number.isFinite(track.duration) && track.duration > 0 ? track.duration : 0;
+  let position = Number.isFinite(playback.position) ? Math.max(0, playback.position) : 0;
+  if (playback.playing && Number.isFinite(playback.updatedAt) && Number.isFinite(serverNow)) {
+    position += Math.max(0, (serverNow - playback.updatedAt) / 1000);
+  }
+  if (duration > 0) position = Math.min(position, duration);
+  return {
+    playback_state: playing,
+    title: cutText(track.title, 200),
+    artist: cutText(track.artist, 200),
+    album: cutText(track.album, 200),
+    // The cover path on the server, turned into a key by the SDK and back
+    // into the path by the artwork handler: never a URL to fetch.
+    artwork_url: COVER_PATH.test(track.cover ?? '') ? track.cover : null,
+    duration: Math.round(duration),
+    position: Math.round(position),
+  };
 }

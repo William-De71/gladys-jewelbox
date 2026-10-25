@@ -8,7 +8,7 @@ C’est une intégration personnelle, absente du store : installez-la depuis l�
 
 ## Prérequis
 
-- Gladys 5.1.0 ou plus récent.
+- Gladys 5.3.0 ou plus récent.
 - JewelBox Music Library 1.17.0 ou plus récent sur le même réseau, avec son annonce mDNS active (par défaut). JewelBox en Docker : `network_mode: host`, ou saisissez son adresse dans la configuration.
 
 ## Configuration
@@ -29,9 +29,9 @@ Enregistrez, puis cliquez sur **Tester la connexion** : il cherche le serveur et
 Dans l’onglet **Découverte**, ajoutez :
 
 - **Collection JewelBox** : albums, liste de souhaits, prêtés, artistes, note moyenne, durée d’écoute (heures), plus ancien prêt (jours). Lue chaque minute.
-- **Un appareil par lecteur** (appli web, bureau, Android) : lecture, titre, artiste, album. Lu toutes les 10 s.
+- **Un appareil par lecteur** (appli web, bureau, Android) : lecture, titre, artiste, album, et le « en cours de lecture » des lecteurs de musique de Gladys (titre, artiste, album, pochette, durée, position). Lu toutes les 10 s, publié seulement quand il change.
 
-Un lecteur est « en lecture » quand sa position avance à son rythme habituel : JewelBox n’enregistre pas d’état lecture / pause, une pause est donc vue avec 10 à 50 s de retard. Les lecteurs ne se pilotent pas depuis Gladys.
+Un lecteur est « en lecture » quand sa position avance à son rythme habituel : JewelBox n’enregistre pas d’état lecture / pause, une pause est donc vue avec 10 à 50 s de retard. Les lecteurs ne se pilotent pas depuis Gladys : le widget « appareils de la pièce » montre ce qu’ils jouent, la boîte musique du tableau de bord ne les propose pas. Un lecteur ajouté avant cette version reçoit ses nouvelles fonctionnalités avec le bouton **Mettre à jour** de l’onglet Découverte.
 
 ### Widgets
 

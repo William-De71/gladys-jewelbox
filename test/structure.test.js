@@ -5,7 +5,8 @@
 // saved configuration refers to.
 //
 // test/fixtures/discovery.baseline.json was generated from version 0.1.0 (the
-// first release). A failure here means existing users would have to delete
+// first release), then extended with the features added since (the `music_*`
+// features of the players, Gladys 5.3.0): additions only. A failure here means existing users would have to delete
 // and recreate a device, or would lose a scene or a widget setting: never
 // update the baseline without a documented migration
 // (UPDATE_BASELINE=1 npm test rewrites it, on purpose only).
@@ -97,7 +98,31 @@ if (process.env.UPDATE_BASELINE === '1') {
 const baseline = JSON.parse(readFileSync(BASELINE, 'utf8'));
 
 test('devices: external ids and the fields of the Discovery "Update" button never change', () => {
-  assert.deepEqual(devices(), baseline.devices);
+  const now = devices();
+  for (const [key, before] of Object.entries(baseline.devices)) {
+    const after = now[key];
+    assert.deepEqual(
+      { ...after, features: undefined },
+      { ...before, features: undefined },
+      `${key}: device fields`,
+    );
+    // A feature is never removed nor changed; new ones may be added (the
+    // user gets them with the Discovery "Update" button), and are in the
+    // baseline from then on.
+    for (const feature of before.features) {
+      assert.deepEqual(
+        after.features.find((f) => f.external_id === feature.external_id),
+        feature,
+        feature.external_id,
+      );
+    }
+    for (const feature of after.features) {
+      assert.ok(
+        before.features.some((f) => f.external_id === feature.external_id),
+        `${feature.external_id} is not in the baseline yet (UPDATE_BASELINE=1, an addition only)`,
+      );
+    }
+  }
 });
 
 test('manifest: every key users store is still there, unchanged (new ones may be added)', () => {

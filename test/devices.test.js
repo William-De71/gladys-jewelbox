@@ -12,6 +12,8 @@ import {
   buildCollectionDevice,
   buildPlayerDevice,
   collectionValues,
+  nowPlayingFeatureIds,
+  nowPlayingOf,
   parseExternalId,
   playerNames,
   playerValues,
@@ -95,11 +97,66 @@ test('values: a missing statistic is omitted, never 0; texts never empty', () =>
     playerValues({ playing: false, track: { title: '', artist: 'A', album: null } }),
   );
   assert.deepEqual(values, {
-    playing: 0,
     track: { text: '–' },
     artist: { text: 'A' },
     album: { text: '–' },
   });
+});
+
+test('now playing: the position sampled now, the cover path, texts cleared without a queue', () => {
+  const track = {
+    title: 'Revelation',
+    artist: 'Marilyn Manson',
+    album: 'Heaven Upside Down',
+    duration: 300,
+    cover: '/covers/a1e67298241294dffe2e8f3a18f72d24.jpeg',
+  };
+  const at = Date.UTC(2026, 9, 24, 16, 0, 0);
+  const playing = { playing: true, position: 12, updatedAt: at, track };
+  assert.deepEqual(nowPlayingOf(playing, at + 8400), {
+    playback_state: 1,
+    title: 'Revelation',
+    artist: 'Marilyn Manson',
+    album: 'Heaven Upside Down',
+    artwork_url: '/covers/a1e67298241294dffe2e8f3a18f72d24.jpeg',
+    duration: 300,
+    position: 20,
+  });
+  assert.equal(nowPlayingOf(playing, at + 3600 * 1000).position, 300, 'never past the end');
+  const paused = nowPlayingOf({ ...playing, playing: false }, at + 60000);
+  assert.equal(paused.playback_state, 0);
+  assert.equal(paused.position, 12, 'frozen while paused');
+  const odd = nowPlayingOf(
+    { ...playing, track: { ...track, duration: null, cover: 'http://elsewhere/x.jpg' } },
+    at,
+  );
+  assert.equal(odd.artwork_url, null, 'a cover outside the server is never keyed');
+  assert.equal(odd.duration, 0);
+  assert.deepEqual(nowPlayingOf({ playing: false, position: 0, updatedAt: NaN, track: null }, at), {
+    playback_state: 0,
+    title: '',
+    artist: '',
+    album: '',
+    artwork_url: null,
+    duration: 0,
+    position: 0,
+  });
+  assert.equal(nowPlayingOf(null, at), null);
+});
+
+test('now playing: every type lands on a feature of the player, the state on `playing`', () => {
+  const player = buildPlayerDevice(gladys, PLAYER, 'JewelBox bureau', 'en');
+  const byId = new Map(player.features.map((feature) => [feature.external_id, feature]));
+  for (const [type, id] of Object.entries(nowPlayingFeatureIds(gladys, PLAYER))) {
+    const feature = byId.get(id);
+    assert.ok(feature, id);
+    assert.equal(feature.category, DEVICE_FEATURE_CATEGORIES.MUSIC, id);
+    assert.equal(feature.type, type, id);
+  }
+  assert.equal(
+    nowPlayingFeatureIds(gladys, PLAYER).playback_state,
+    `${player.external_id}:playing`,
+  );
 });
 
 test('player names: JewelBox prefix, the id when two share a label', () => {

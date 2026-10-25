@@ -59,11 +59,12 @@ test('personal integration: never tagged for the store', () => {
   assert.match(source('../.github/workflows/release.yml'), /must stay out of the store/);
 });
 
-test('widgets and scenes need Gladys 5.1.0; no field of a newer Gladys, no other permission', () => {
-  assert.equal(manifest.gladys_version, '>=5.1.0');
+test('the music players need Gladys 5.3.0; no other permission', () => {
+  assert.equal(manifest.gladys_version, '>=5.3.0');
+  // Now playing and artwork only: JewelBox has no catalog to play from nor
+  // any command channel, so no operation is declared.
+  assert.deepEqual(manifest.music, {});
   assert.deepEqual(manifest.categories, ['multimedia']);
-  const text = JSON.stringify(manifest);
-  assert.doesNotMatch(text, /"source":"houses"/, 'houses need 5.2.0');
   for (const key of [
     'location',
     'network_wake',
@@ -77,8 +78,6 @@ test('widgets and scenes need Gladys 5.1.0; no field of a newer Gladys, no other
   ]) {
     assert.equal(manifest[key], undefined, `${key} (permission, or a newer Gladys)`);
   }
-  // A widget button with a form needs 5.2.0: never `fields` in a button.
-  assert.doesNotMatch(source('../src/widgets.js'), /fields:/);
 });
 
 test('the configuration mirrors src/config.js', () => {

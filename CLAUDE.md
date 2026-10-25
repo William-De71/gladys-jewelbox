@@ -12,7 +12,8 @@ step) in its own sandboxed Docker container, talking to Gladys through
 [`@gladysassistant/integration-sdk`](https://github.com/GladysAssistant/integration-sdk-js),
 its only runtime dependency, and to the JewelBox server on the local network
 (REST `/api`, no authentication, port 3001; `transports: ["local"]`).
-`type: "device"`, Gladys 5.1.0+ (widgets, scenes, mediated mDNS).
+`type: "device"`, Gladys 5.3.0+ (widgets, scenes, mediated mDNS, music players:
+`"music": {}`, now playing and artwork only).
 
 **Never in the store.** The repository is public (Gladys pulls the image
 anonymously and reads the manifest of `main`), but it must never carry the
@@ -49,7 +50,8 @@ src/client.js         HTTP client of JewelBox (X-Device-Id header, typed errors,
 src/playback.js       is a player playing? deduced from the queue writes (pure)
 src/collection.js     what changed between two readings: added, left the wish
                       list, lent, returned, overdue (pure)
-src/devices.js        the collection and player devices, feature values
+src/devices.js        the collection and player devices, feature values, the
+                      now playing snapshot of publishNowPlaying (nowPlayingOf)
 src/scenes.js         trigger / action keys, event data, player transitions
 src/widgets.js        the five widgets (pure, reused by docs/illustrations), cover keys
 src/states.js         state publication: created devices only, coalesced, 240/min, 429 pause
@@ -74,7 +76,17 @@ test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illust
   without a documented migration.
 - **Read-only devices.** JewelBox cannot command a player; `onSetValue`
   refuses. Controlling the players needs a command channel in JewelBox first
-  (server + web app + desktop + Android).
+  (server + web app + desktop + Android). So no `music` operation is declared
+  (no browse / search / queue / play), and no music box on the dashboard (it
+  needs `play` or a writable `playback_state`).
+- **Now playing** goes through `gladys.publishNowPlaying` (diff, one batch),
+  only for created players, from the rounds and at a device creation: never
+  on a timer of its own. The playback state stays the `playing` feature of
+  0.1.0 (`max: 1` forever: stopped is 0, never IDLE 2), mapped with
+  `featureExternalIds`; the `music_*` features are additions. The text
+  features `track` / `artist` / `album` stay (scenes use them) and still go
+  through `src/states.js`. Clearing a `music` text is `''` (5.3.0 accepts it),
+  unlike the text features (`NO_TEXT`).
 - **Writes to JewelBox** only from the scene actions `lend_album`,
   `return_album` and `scan_library`, never from a round or a widget.
 - **Scene events** come from the rounds only: never at the first reading,
@@ -84,6 +96,9 @@ test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illust
 - **Covers**: an image key is built from the file name of a JewelBox cover
   (`jb-<md5>-<ext>`) and the handler rebuilds the path from the key alone:
   never fetch another URL. 300 KB at most (no resize: no native module).
+  The player artwork key is the SDK's (`artworkKey` of the cover path
+  `/covers/<md5>.<ext>`); `onMusicGetArtwork` reads the path back from
+  `gladys.artworkUrls` and checks it with the same rules.
 - **No empty text state** (Gladys would drop it): `NO_TEXT`.
 - **The container rootfs is read-only.** Write only under `/data`.
 - **Two languages**, those of JewelBox: every user-facing text (manifest,

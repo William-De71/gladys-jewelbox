@@ -179,7 +179,9 @@ test('README: badges, the cover under them, the widget image of their language',
     assert.match(lines[badges], /badge\/(license|licence)-Apache--2\.0/, file);
     assert.match(text, /github\/v\/release\/William-De71\/gladys-jewelbox\?sort=semver/, file);
     assert.match(text, /workflow\/status\/William-De71\/gladys-jewelbox\/release\.yml/, file);
-    assert.match(text, /Gladys-%E2%89%A5%205\.1\.0/, file);
+    // The Gladys badge says the range of the manifest.
+    const gladys = JSON.parse(read('../gladys-assistant-integration.json')).gladys_version;
+    assert.ok(text.includes(`Gladys-%E2%89%A5%20${gladys.replace('>=', '')}-`), file);
     // The cover right under the four badges, before the pitch.
     assert.match(
       lines[badges + 5],
