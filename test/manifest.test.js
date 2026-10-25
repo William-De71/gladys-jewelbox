@@ -71,8 +71,6 @@ test('the music players need Gladys 5.3.0; no other permission', () => {
     'containers',
     'webhooks',
     'messaging',
-    'keywords',
-    'countries',
     'energy_contracts',
     'account_schema',
   ]) {
@@ -171,4 +169,17 @@ test('limits: counts, timeouts, sizes, no secret in widget settings', () => {
   const cover = readFileSync(new URL('../cover.jpg', import.meta.url));
   assert.ok(cover.length < 150 * 1024, `cover.jpg: ${cover.length} bytes`);
   assert.equal(cover.readUInt16BE(0), 0xffd8, 'cover.jpg is a JPEG');
+});
+
+test('catalog keywords (Gladys 5.3.0), worldwide', () => {
+  const { keywords } = manifest;
+  assert.ok(Array.isArray(keywords) && keywords.length >= 1 && keywords.length <= 10);
+  for (const keyword of keywords) {
+    assert.ok(keyword.trim().length >= 2 && keyword.trim().length <= 30, keyword);
+  }
+  const normalized = keywords.map((keyword) => keyword.trim().toLowerCase());
+  assert.equal(new Set(normalized).size, normalized.length);
+  assert.ok(!normalized.includes(manifest.name.toLowerCase()));
+  // A self-hosted server on the LAN: usable anywhere.
+  assert.equal(manifest.countries, undefined);
 });
