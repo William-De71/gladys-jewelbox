@@ -5,6 +5,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/). This file is generated at
 each release from the Conventional Commits: do not edit it by hand.
 
+## [0.3.0] - 2026-10-25
+
+### Added
+
+- declare catalog keywords for Gladys 5.3 ([f019b42](https://github.com/William-De71/gladys-jewelbox/commit/f019b42343b36a7d2ddf517f0ba07abd0b99d024))
+
 ## [0.2.0] - 2026-10-25
 
 ### Added
@@ -22,5 +28,6 @@ each release from the Conventional Commits: do not edit it by hand.
 - **widgets:** the player with its cover, the collection (counters, albums by decade, top genres), the lent albums, the album of the day with an "Another album" button, the recently added covers
 - **i18n:** English and French, the languages of JewelBox
 
+[0.3.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/William-De71/gladys-jewelbox/releases/tag/v0.1.0
