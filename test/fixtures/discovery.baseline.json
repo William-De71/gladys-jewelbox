@@ -170,6 +170,159 @@
           "has_feedback": false
         }
       ]
+    },
+    "controllable_player": {
+      "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4",
+      "should_poll": false,
+      "params": ["JEWELBOX_DEVICE_ID"],
+      "features": [
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:playing",
+          "category": "music",
+          "type": "playback_state",
+          "min": 0,
+          "max": 1,
+          "read_only": false,
+          "has_feedback": true
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:track",
+          "category": "text",
+          "type": "text",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:artist",
+          "category": "text",
+          "type": "text",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:album",
+          "category": "text",
+          "type": "text",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:music_title",
+          "category": "music",
+          "type": "title",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:music_artist",
+          "category": "music",
+          "type": "artist",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:music_album",
+          "category": "music",
+          "type": "album",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:music_artwork",
+          "category": "music",
+          "type": "artwork",
+          "min": 0,
+          "max": 0,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:music_duration",
+          "category": "music",
+          "type": "duration",
+          "unit": "seconds",
+          "min": 0,
+          "max": 86400,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:music_position",
+          "category": "music",
+          "type": "position",
+          "unit": "seconds",
+          "min": 0,
+          "max": 86400,
+          "read_only": false,
+          "has_feedback": true
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:next",
+          "category": "music",
+          "type": "next",
+          "min": 0,
+          "max": 1,
+          "read_only": false,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:previous",
+          "category": "music",
+          "type": "previous",
+          "min": 0,
+          "max": 1,
+          "read_only": false,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:volume",
+          "category": "music",
+          "type": "volume",
+          "min": 0,
+          "max": 100,
+          "read_only": false,
+          "has_feedback": true
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:mute",
+          "category": "music",
+          "type": "mute",
+          "min": 0,
+          "max": 1,
+          "read_only": false,
+          "has_feedback": true
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:shuffle",
+          "category": "music",
+          "type": "shuffle",
+          "min": 0,
+          "max": 1,
+          "read_only": false,
+          "has_feedback": true
+        },
+        {
+          "external_id": "ext:test-integration:player:249102a0-f41b-4c4c-b17a-ec3eee29edf4:repeat",
+          "category": "music",
+          "type": "repeat",
+          "min": 0,
+          "max": 2,
+          "read_only": false,
+          "has_feedback": true
+        }
+      ]
     }
   },
   "manifest": {

@@ -3,8 +3,8 @@
   "type": "device",
   "name": "JewelBox",
   "description": {
-    "en": "Your JewelBox CD collection in Gladys: counters, loans, players, widgets and scenes.",
-    "fr": "Votre collection de CD JewelBox dans Gladys : compteurs, prêts, lecteurs, widgets et scènes."
+    "en": "Your JewelBox CD collection in Gladys: counters, loans, widgets, scenes, players under control.",
+    "fr": "Votre collection de CD JewelBox dans Gladys : compteurs, prêts, widgets, scènes, lecteurs pilotés."
   },
   "version": "0.3.0",
   "docker_image": "ghcr.io/william-de71/gladys-jewelbox:0.3.0",
@@ -28,7 +28,12 @@
       "service": "_jewelbox._tcp"
     }
   ],
-  "music": {},
+  "music": {
+    "browse": true,
+    "search": true,
+    "queue": true,
+    "append": true
+  },
   "config_schema": [
     {
       "key": "intro",

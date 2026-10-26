@@ -31,7 +31,11 @@ Dans l’onglet **Découverte**, ajoutez :
 - **Collection JewelBox** : albums, liste de souhaits, prêtés, artistes, note moyenne, durée d’écoute (heures), plus ancien prêt (jours). Lue chaque minute.
 - **Un appareil par lecteur** (appli web, bureau, Android) : lecture, titre, artiste, album, et le « en cours de lecture » des lecteurs de musique de Gladys (titre, artiste, album, pochette, durée, position). Lu toutes les 10 s, publié seulement quand il change.
 
-Un lecteur est « en lecture » quand sa position avance à son rythme habituel : JewelBox n’enregistre pas d’état lecture / pause, une pause est donc vue avec 10 à 50 s de retard. Les lecteurs ne se pilotent pas depuis Gladys : le widget « appareils de la pièce » montre ce qu’ils jouent, la boîte musique du tableau de bord ne les propose pas. Un lecteur ajouté avant cette version reçoit ses nouvelles fonctionnalités avec le bouton **Mettre à jour** de l’onglet Découverte.
+**Piloter les lecteurs** demande JewelBox **1.18** ou plus et un lecteur à jour (appli web, bureau, Android) dont le réglage **Autoriser le contrôle à distance** est actif (il l’est par défaut). Un tel lecteur reçoit en plus : lecture / pause, titre suivant et précédent, déplacement dans le titre, volume, muet (appli web et bureau), aléatoire et répétition. La boîte musique du tableau de bord y joue alors le catalogue JewelBox (albums, playlists, listes intelligentes, recherche, radio d’un album ou d’un artiste) et affiche sa file d’attente ; l’action de scène **Lire un média** de Gladys fait de même. Un lecteur se pilote tant qu’il tourne : l’appli web tant que son onglet est ouvert (le navigateur peut refuser de lancer le son tant qu’un titre n’a pas été joué à la main dans cet onglet), le lecteur de bureau tant qu’il est ouvert, l’appli Android tant qu’elle est ouverte ou qu’elle joue.
+
+Avec un JewelBox plus ancien, ou un lecteur pas à jour, le lecteur reste en lecture seule et son état est déduit : il est « en lecture » quand sa position avance à son rythme habituel, une pause est donc vue avec 10 à 50 s de retard. Avec JewelBox 1.18, chaque lecteur signale son état aussitôt.
+
+Un lecteur ajouté avant cette version reçoit ses nouvelles fonctionnalités avec le bouton **Mettre à jour** de l’onglet Découverte (une fois qu’il a été vu acceptant le contrôle à distance).
 
 ### Widgets
 

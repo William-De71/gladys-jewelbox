@@ -27,7 +27,19 @@
 //     music_duration
 //     music_position
 //
-// Everything is read-only: JewelBox has no way to command a player.
+//   and, once the player announced it accepts remote control (JewelBox
+//   1.18+, its capabilities remembered in /data/players.json):
+//     playing        writable (1 plays, 0 pauses), has_feedback
+//     next           next track (button)
+//     previous       previous track (button)
+//     music_position writable with `seek` (a write is a seek)
+//     volume         0–100, with `volume`
+//     mute           with `mute`
+//     shuffle        with `shuffle`
+//     repeat         off / all / one, with `repeat`
+//
+// The collection is read-only. A player without remote control stays
+// read-only: the commands go through JewelBox (src/remote.js).
 // No `should_poll`: the integration reads the server itself (players every
 // 10 s, the collection every minute).
 // -----------------------------------------------------------------------------
@@ -38,6 +50,7 @@ import {
   DEVICE_FEATURE_UNITS as UNITS,
 } from '@gladysassistant/integration-sdk';
 import { t } from './i18n.js';
+import { REPEAT_TO_GLADYS, durationSeconds } from './remote.js';
 
 export const DEVICE_TYPES = { COLLECTION: 'collection', PLAYER: 'player' };
 export const COLLECTION_FEATURES = {
@@ -60,6 +73,12 @@ export const PLAYER_FEATURES = {
   MUSIC_ARTWORK: 'music_artwork',
   MUSIC_DURATION: 'music_duration',
   MUSIC_POSITION: 'music_position',
+  NEXT: 'next',
+  PREVIOUS: 'previous',
+  VOLUME: 'volume',
+  MUTE: 'mute',
+  SHUFFLE: 'shuffle',
+  REPEAT: 'repeat',
 };
 export const PLAYBACK_STATE = { PLAYING: 1, STOPPED: 0 };
 export const SERVER_PARAM = 'JEWELBOX_SERVER_ID';
@@ -135,6 +154,18 @@ const COLLECTION_SPECS = [
   ],
 ];
 
+// The controls of a player that accepts remote control. The player is the
+// source of truth: the core saves nothing on a write, the live state of the
+// player confirms it (has_feedback). The buttons have no state.
+const control = (type, min, max) => ({
+  ...music(type),
+  min,
+  max,
+  read_only: false,
+  has_feedback: true,
+});
+const button = (type) => ({ ...control(type, 0, 1), has_feedback: false });
+
 const PLAYER_SPECS = [
   [
     PLAYER_FEATURES.PLAYING,
@@ -156,6 +187,40 @@ const PLAYER_SPECS = [
   [PLAYER_FEATURES.MUSIC_DURATION, seconds(TYPES.MUSIC.DURATION)],
   [PLAYER_FEATURES.MUSIC_POSITION, seconds(TYPES.MUSIC.POSITION)],
 ];
+
+// Controls, by the capability they need (null: every controllable player).
+const CONTROL_SPECS = [
+  [PLAYER_FEATURES.NEXT, null, button(TYPES.MUSIC.NEXT)],
+  [PLAYER_FEATURES.PREVIOUS, null, button(TYPES.MUSIC.PREVIOUS)],
+  [PLAYER_FEATURES.VOLUME, 'volume', control(TYPES.MUSIC.VOLUME, 0, 100)],
+  [PLAYER_FEATURES.MUTE, 'mute', control(TYPES.MUSIC.MUTE, 0, 1)],
+  [PLAYER_FEATURES.SHUFFLE, 'shuffle', control(TYPES.MUSIC.SHUFFLE, 0, 1)],
+  [PLAYER_FEATURES.REPEAT, 'repeat', control(TYPES.MUSIC.REPEAT, 0, 2)],
+];
+
+/**
+ * @description The feature specs of a player.
+ * @param {string[]|null} capabilities - What it announced, null when it
+ * never accepted remote control.
+ * @returns {Array<[string, object]>} `[key, feature]`.
+ */
+function playerSpecs(capabilities) {
+  if (!capabilities) return PLAYER_SPECS;
+  const specs = PLAYER_SPECS.map(([key, feature]) => {
+    if (key === PLAYER_FEATURES.PLAYING) {
+      // min / max stay 0 / 1 (forever): a JewelBox player plays or pauses.
+      return [key, { ...feature, read_only: false, has_feedback: true }];
+    }
+    if (key === PLAYER_FEATURES.MUSIC_POSITION && capabilities.includes('seek')) {
+      return [key, { ...feature, read_only: false, has_feedback: true }];
+    }
+    return [key, feature];
+  });
+  for (const [key, needs, feature] of CONTROL_SPECS) {
+    if (!needs || capabilities.includes(needs)) specs.push([key, feature]);
+  }
+  return specs;
+}
 
 // A JewelBox device id is a UUID (the players mint it); the server accepts
 // any string up to 64 characters, so anything else is refused here.
@@ -192,6 +257,14 @@ const featuresOf = (ids, specs, prefix, language) =>
     name: `${prefix} - ${t(`feature_${key}`, language)}`,
     external_id: ids.feature(key),
     ...feature,
+    ...(key === PLAYER_FEATURES.PLAYING && !feature.read_only
+      ? {
+          supported_options: [
+            { value: PLAYBACK_STATE.STOPPED, label: t('playbackPaused', language), sort_order: 0 },
+            { value: PLAYBACK_STATE.PLAYING, label: t('playbackPlaying', language), sort_order: 1 },
+          ],
+        }
+      : {}),
   }));
 
 /**
@@ -245,15 +318,17 @@ export function playerNames(players) {
  * @param {string} deviceId - JewelBox device id.
  * @param {string} name - Its name (playerNames).
  * @param {string} language - Language of the names.
+ * @param {string[]|null} [capabilities] - Its remote control capabilities,
+ * null when it never accepted remote control (read-only device).
  * @returns {object} The device.
  */
-export function buildPlayerDevice(gladys, deviceId, name, language) {
+export function buildPlayerDevice(gladys, deviceId, name, language, capabilities = null) {
   const ids = playerIds(gladys, deviceId);
   return {
     name,
     external_id: ids.device,
     should_poll: false,
-    features: featuresOf(ids, PLAYER_SPECS, name, language),
+    features: featuresOf(ids, playerSpecs(capabilities), name, language),
     params: [{ name: PLAYER_PARAM, value: deviceId }],
   };
 }
@@ -329,6 +404,10 @@ export function nowPlayingFeatureIds(gladys, deviceId) {
     [TYPES.MUSIC.ARTWORK]: ids.feature(PLAYER_FEATURES.MUSIC_ARTWORK),
     [TYPES.MUSIC.DURATION]: ids.feature(PLAYER_FEATURES.MUSIC_DURATION),
     [TYPES.MUSIC.POSITION]: ids.feature(PLAYER_FEATURES.MUSIC_POSITION),
+    [TYPES.MUSIC.VOLUME]: ids.feature(PLAYER_FEATURES.VOLUME),
+    [TYPES.MUSIC.MUTE]: ids.feature(PLAYER_FEATURES.MUTE),
+    [TYPES.MUSIC.SHUFFLE]: ids.feature(PLAYER_FEATURES.SHUFFLE),
+    [TYPES.MUSIC.REPEAT]: ids.feature(PLAYER_FEATURES.REPEAT),
   };
 }
 
@@ -352,8 +431,17 @@ export function nowPlayingOf(playback, serverNow) {
   if (!playback) return null;
   const track = playback.track;
   const playing = playback.playing ? PLAYBACK_STATE.PLAYING : PLAYBACK_STATE.STOPPED;
+  // The live fields (JewelBox 1.18+), only when the player reported them:
+  // an absent key leaves the feature unchanged (or absent on the device).
+  const live = {
+    ...(Number.isFinite(playback.volume) ? { volume: Math.round(playback.volume) } : {}),
+    ...(typeof playback.muted === 'boolean' ? { mute: playback.muted } : {}),
+    ...(typeof playback.shuffle === 'boolean' ? { shuffle: playback.shuffle } : {}),
+    ...(playback.repeat in REPEAT_TO_GLADYS ? { repeat: REPEAT_TO_GLADYS[playback.repeat] } : {}),
+  };
   if (!track) {
     return {
+      ...live,
       playback_state: playing,
       title: '',
       artist: '',
@@ -363,13 +451,14 @@ export function nowPlayingOf(playback, serverNow) {
       position: 0,
     };
   }
-  const duration = Number.isFinite(track.duration) && track.duration > 0 ? track.duration : 0;
+  const duration = durationSeconds(track.duration) ?? 0;
   let position = Number.isFinite(playback.position) ? Math.max(0, playback.position) : 0;
   if (playback.playing && Number.isFinite(playback.updatedAt) && Number.isFinite(serverNow)) {
     position += Math.max(0, (serverNow - playback.updatedAt) / 1000);
   }
   if (duration > 0) position = Math.min(position, duration);
   return {
+    ...live,
     playback_state: playing,
     title: cutText(track.title, 200),
     artist: cutText(track.artist, 200),

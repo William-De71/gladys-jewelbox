@@ -67,6 +67,41 @@ export function parseSqlDate(value) {
 }
 
 /**
+ * @description A Server-Sent Events parser: feed it chunks of text, it gives
+ * back the complete events (comments, `retry:` and non-JSON data skipped).
+ * @returns {Function} `(chunk) => Array<[event, data]>`.
+ */
+export function createSseParser() {
+  let buffer = '';
+  return (chunk) => {
+    buffer += chunk.replace(/\r\n/g, '\n');
+    const events = [];
+    let cut;
+    while ((cut = buffer.indexOf('\n\n')) >= 0) {
+      const block = buffer.slice(0, cut);
+      buffer = buffer.slice(cut + 2);
+      let event = 'message';
+      const data = [];
+      for (const line of block.split('\n')) {
+        if (line.startsWith(':')) continue;
+        const colon = line.indexOf(':');
+        const field = colon < 0 ? line : line.slice(0, colon);
+        const value = colon < 0 ? '' : line.slice(colon + 1).replace(/^ /, '');
+        if (field === 'event') event = value;
+        else if (field === 'data') data.push(value);
+      }
+      if (!data.length) continue;
+      try {
+        events.push([event, JSON.parse(data.join('\n'))]);
+      } catch {
+        // Not JSON: not ours.
+      }
+    }
+    return events;
+  };
+}
+
+/**
  * @description Create the client.
  * @param {object} [deps] - Dependencies.
  * @param {Function} [deps.fetch] - fetch (tests).
@@ -214,6 +249,82 @@ export function createClient({ fetch = globalThis.fetch, now = Date.now } = {}) 
           return { queue: null, serverNow: now() };
         }
         throw error;
+      }
+    },
+
+    /**
+     * @description The live state of the players and which ones accept
+     * commands (JewelBox 1.18+).
+     * @param {string} base - Base URL.
+     * @returns {Promise<{ devices: object[]|null, serverNow: number }>} The
+     * list, null on an older server (no such route).
+     */
+    async remoteDevices(base) {
+      try {
+        const { data, serverNow } = await request(base, '/api/player/remote/devices');
+        return { devices: Array.isArray(data?.data) ? data.data : [], serverNow };
+      } catch (error) {
+        if (error instanceof JewelBoxError && error.status === 404) {
+          return { devices: null, serverNow: now() };
+        }
+        throw error;
+      }
+    },
+
+    /**
+     * @description Send a command to a player (`{ command, ...arguments }`,
+     * see the remote control of JewelBox). The player confirms through its
+     * next live state, not this answer.
+     * @param {string} base - Base URL.
+     * @param {string} deviceId - JewelBox device id.
+     * @param {object} body - The command.
+     * @returns {Promise<void>}
+     */
+    async command(base, deviceId, body) {
+      await request(base, `/api/player/remote/devices/${encodeURIComponent(deviceId)}/commands`, {
+        method: 'POST',
+        body,
+      });
+    },
+
+    playlists: async (base) => (await get(base, '/api/playlists'))?.data ?? [],
+    playlist: (base, id) => get(base, `/api/playlists/${Number(id)}`),
+    smartPlaylists: async (base) => (await get(base, '/api/smart-playlists'))?.data ?? [],
+    smartPlaylist: (base, key) => get(base, `/api/smart-playlists/${encodeURIComponent(key)}`),
+    search: (base, text) => get(base, `/api/player/search${query({ q: text })}`),
+
+    /**
+     * @description Follow the changes of the players (JewelBox 1.18+): a
+     * Server-Sent Events stream, read until it ends or `signal` aborts.
+     * @param {string} base - Base URL.
+     * @param {object} options - `{ signal, onEvent(event, data) }`.
+     * @returns {Promise<void>} Resolves when the stream ends; rejects when it
+     * cannot be opened (404: an older server).
+     */
+    async watch(base, { signal, onEvent }) {
+      let response;
+      try {
+        response = await fetch(`${base}/api/player/remote/watch`, {
+          headers: { Accept: 'text/event-stream', 'X-Device-Id': DEVICE_ID },
+          signal,
+        });
+      } catch (error) {
+        throw new JewelBoxError('network', error?.cause?.code ?? error?.name ?? 'unreachable');
+      }
+      if (!response.ok || !response.body) {
+        throw new JewelBoxError('http', `HTTP ${response.status}`, response.status);
+      }
+      const parser = createSseParser();
+      const decoder = new TextDecoder();
+      try {
+        for await (const chunk of response.body) {
+          for (const [event, data] of parser(decoder.decode(chunk, { stream: true }))) {
+            onEvent(event, data);
+          }
+        }
+      } catch (error) {
+        if (signal?.aborted) return;
+        throw new JewelBoxError('network', error?.name ?? 'stream lost');
       }
     },
 

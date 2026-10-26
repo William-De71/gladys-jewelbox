@@ -31,6 +31,44 @@ const TEXTS = {
   feature_music_artwork: { en: 'Now playing: cover', fr: 'En cours : pochette' },
   feature_music_duration: { en: 'Track duration', fr: 'Durée du titre' },
   feature_music_position: { en: 'Position in the track', fr: 'Position dans le titre' },
+  feature_next: { en: 'Next track', fr: 'Titre suivant' },
+  feature_previous: { en: 'Previous track', fr: 'Titre précédent' },
+  feature_volume: { en: 'Volume', fr: 'Volume' },
+  feature_mute: { en: 'Mute', fr: 'Muet' },
+  feature_shuffle: { en: 'Shuffle', fr: 'Aléatoire' },
+  feature_repeat: { en: 'Repeat', fr: 'Répétition' },
+  playbackPaused: { en: 'Paused', fr: 'En pause' },
+  playbackPlaying: { en: 'Playing', fr: 'En lecture' },
+
+  // Music players: the catalog of JewelBox in Gladys.
+  folderAlbums: { en: 'Albums', fr: 'Albums' },
+  folderPlaylists: { en: 'Playlists', fr: 'Playlists' },
+  folderSmart: { en: 'Smart playlists', fr: 'Listes intelligentes' },
+  albumRadio: { en: 'Radio of this album', fr: 'Radio de cet album' },
+  artistRadio: { en: 'Artist radio', fr: 'Radio de l’artiste' },
+  tracksCount: { en: '{count} tracks', fr: '{count} titres' },
+  smart_newest: { en: 'Recently added', fr: 'Ajouts récents' },
+  smart_ever_played: { en: 'Already played', fr: 'Déjà écoutées' },
+  smart_never_played: { en: 'Never played', fr: 'Jamais écoutées' },
+  smart_last_played: { en: 'Recently played', fr: 'Écoutées récemment' },
+  smart_most_played: { en: 'Most played', fr: 'Les plus écoutées' },
+  smart_favourites: { en: 'Favourites', fr: 'Favoris' },
+  smart_all_tracks: { en: 'All tracks', fr: 'Toutes les pistes' },
+  smart_dynamic_mix: { en: 'Dynamic mix', fr: 'Mix dynamique' },
+
+  // Remote control errors (dashboard, scenes).
+  errorPlayerOffline: {
+    en: '{player} is not connected to JewelBox or does not allow remote control (setting of the player).',
+    fr: '{player} n’est pas connecté à JewelBox ou n’autorise pas le contrôle à distance (réglage du lecteur).',
+  },
+  errorPlayerUnsupported: {
+    en: '{player} cannot do that ({error}).',
+    fr: '{player} ne sait pas faire cela ({error}).',
+  },
+  errorRemoteUnavailable: {
+    en: 'This JewelBox server cannot command its players: update it to 1.18 or later.',
+    fr: 'Ce serveur JewelBox ne peut pas piloter ses lecteurs : mettez-le à jour en 1.18 ou plus.',
+  },
 
   // Connection status (Integrations → JewelBox).
   statusNoServer: {

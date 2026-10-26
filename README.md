@@ -16,7 +16,7 @@ Your [JewelBox Music Library](https://github.com/William-De71/Jewelbox-Music-Lib
 ## Features
 
 - **Collection device**: albums, wish list, albums lent out, artists, average rating, hours of music, days of the oldest loan (history and charts of Gladys).
-- **One device per JewelBox player** (web app, desktop player, Android app): playing or not, and the now playing of the music players of Gladys 5.3.0 (title, artist, album, cover, duration, position). Read-only.
+- **One device per JewelBox player** (web app, desktop player, Android app): playing or not, and the now playing of the music players of Gladys 5.3.0 (title, artist, album, cover, duration, position). With JewelBox 1.18+, **controlled from Gladys**: play / pause, next / previous, seek, volume, mute, shuffle, repeat, and the JewelBox catalog in the music box (browse, search, queue, play).
 - **Scene triggers**: album added (collection or wish list, or a wish come true), album lent, album returned, loan overdue, playback started / stopped, new track.
 - **Scene actions**: what is playing, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
 - **Five dashboard widgets**: player with its cover, collection, lent albums, album of the day, recently added.
@@ -58,11 +58,17 @@ sequenceDiagram
 
 ### Is a player playing?
 
-JewelBox does not store a play / pause state: each player saves its queue on the server, with the position, every 10 s (web app) or 30 s (desktop and Android), and once more at a pause. The integration deduces the state from these writes: a new track or a position moving at the usual pace is “playing”, an early write or no write for the pace + 20 s is “stopped”. A pause is therefore seen 10 to 50 s late. The players cannot be controlled from Gladys: JewelBox has no command channel for now.
+JewelBox does not store a play / pause state: each player saves its queue on the server, with the position, every 10 s (web app) or 30 s (desktop and Android), and once more at a pause. The integration deduces the state from these writes: a new track or a position moving at the usual pace is “playing”, an early write or no write for the pace + 20 s is “stopped”. A pause is therefore seen 10 to 50 s late. That is the fallback of JewelBox 1.17 and older players.
+
+### Remote control (JewelBox 1.18+)
+
+JewelBox 1.18 relays commands to its players: each player whose **Allow remote control** setting is on (the default) keeps an event stream open to the server, and every player reports its live state (play / pause, track, position, volume, modes) at each change. The integration reads that state at each round instead of deducing it, follows the changes as they happen on `GET /api/player/remote/watch` (a round within a second), and turns a write on a player feature into a command (`POST /api/player/remote/devices/:id/commands`). The capabilities a player announced are remembered in `/data/players.json`, so its features do not come and go when it is closed.
+
+The music box of the dashboard reads the catalog on demand: the root offers Albums (A–Z by artist), Playlists and Smart playlists; an album lists its tracks and its radio; the search finds artists (played as their radio), albums and tracks. Play, play next and add to queue are relayed to the player, which starts them like its own buttons do.
 
 ### Now playing
 
-A player also publishes the `music` features of Gladys 5.3.0: title, artist, album, cover, duration and position. They change only on an event (a new track, a pause, a seek), never on a timer: the position is a sample that Gladys extrapolates while the player plays. The cover is served by the integration behind a key (the browser never loads the JewelBox server), at most 300 KB. The “devices in the room” widget shows them; the music box of the dashboard does not offer these players, since it needs a player that obeys play / pause.
+A player also publishes the `music` features of Gladys 5.3.0: title, artist, album, cover, duration and position. They change only on an event (a new track, a pause, a seek), never on a timer: the position is a sample that Gladys extrapolates while the player plays. The cover is served by the integration behind a key (the browser never loads the JewelBox server), at most 300 KB. The “devices in the room” widget shows them; the music box of the dashboard offers the players that accept remote control.
 
 ## Devices and features
 
@@ -72,11 +78,13 @@ A player also publishes the `music` features of Gladys 5.3.0: title, artist, alb
 | JewelBox collection | Average rating                        | `counter-sensor` / `decimal`              | 1 to 5                  |
 | JewelBox collection | Playing time                          | `duration` / `decimal`, hours             | whole collection        |
 | JewelBox collection | Oldest loan                           | `duration` / `integer`, days              | 0 without loan          |
-| JewelBox player     | Playback                              | `music` / `playback_state`                | deduced, read-only      |
+| JewelBox player     | Playback                              | `music` / `playback_state`                | writable with control   |
 | JewelBox player     | Track, Artist, Album                  | `text` / `text`                           | the current track       |
 | JewelBox player     | Now playing: title, artist, album     | `music` / `title`, `artist`, `album`      | empty when no queue     |
 | JewelBox player     | Now playing: cover                    | `music` / `artwork`                       | an image key            |
 | JewelBox player     | Track duration, Position in the track | `music` / `duration`, `position`, seconds | position on events only |
+| JewelBox player     | Next track, Previous track            | `music` / `next`, `previous`              | with control            |
+| JewelBox player     | Volume, Mute, Shuffle, Repeat         | `music` / `volume`, `mute`, …             | per player capability   |
 
 External ids are built on the identifiers JewelBox keeps: the `server_id` of the server and the device id of each player, never an address or a label.
 

@@ -6,7 +6,12 @@
 //                    scan (`_jewelbox._tcp`, through the core); always
 //                    confirmed by `GET /api/server-info` (its server_id)
 //   player rounds    every 10 s: the queues of the players (1 request, plus
-//                    one per created player whose queue changed)
+//                    one per created player whose queue changed) and their
+//                    live state (JewelBox 1.18+, 1 request), and at once
+//                    when the watch stream says a player changed
+//   remote control   writes on the player features → commands, the catalog
+//                    of JewelBox for the music players of Gladys (browse,
+//                    search, queue, play), src/remote.js
 //   collection       every minute: active collection, statistics, latest
 //   rounds           albums, wish list, loans (5 requests)
 //   states           counters of the collection, track of the players
@@ -21,7 +26,8 @@
 //   images           covers by key, for the widgets and the player artwork
 //   status           no server found, server unreachable
 //
-// /data holds the address of the server and the loans already reminded.
+// /data holds the address of the server, the loans already reminded and the
+// remote control capabilities of the players (players.json).
 // -----------------------------------------------------------------------------
 
 import { parseMdnsTxt } from '@gladysassistant/integration-sdk';
@@ -30,6 +36,21 @@ import { createStatePublisher } from './states.js';
 import { createStorage } from './storage.js';
 import { JewelBoxError, createClient, normalizeBaseUrl, parseSqlDate } from './client.js';
 import { nextPlayback, observationOf } from './playback.js';
+import {
+  ROOT_FOLDERS,
+  albumItem,
+  albumRadioItem,
+  artistItem,
+  capabilitiesOf,
+  commandOf,
+  folderItem,
+  parseMediaId,
+  playMediaOf,
+  playbackFromLive,
+  playlistItem,
+  smartItem,
+  trackItem,
+} from './remote.js';
 import { baseOf, changesOf, daysSince, loanKey, oldestLoanDays } from './collection.js';
 import {
   DEVICE_TYPES,
@@ -74,6 +95,7 @@ import { displayTimeZone } from './time.js';
 
 export const SERVER_FILE = 'server.json';
 export const REMINDERS_FILE = 'reminders.json';
+export const PLAYERS_FILE = 'players.json';
 export const CONFIG_ACTIONS = { TEST_CONNECTION: 'test_connection' };
 
 export const PLAYER_ROUND_MS = 10 * 1000;
@@ -89,6 +111,12 @@ const RECENT_LIMIT = 20;
 const LIST_LIMIT = 1000;
 const MAX_IMAGE_BYTES = 300 * 1024;
 const DAY_MS = 24 * 3600 * 1000;
+// A change seen on the watch stream: one round shortly after, for a burst.
+const WATCH_ROUND_DELAY_MS = 300;
+const WATCH_RETRY_MIN_MS = 5 * 1000;
+const WATCH_RETRY_MAX_MS = 60 * 1000;
+const MAX_ITEMS = 100;
+const REMOTE_RECHECK_MS = 10 * 60 * 1000;
 
 class UserError extends Error {
   constructor(key, values = {}) {
@@ -143,8 +171,15 @@ export function createApp(gladys, deps = {}) {
   let players = []; // the list of the server
   let serverNow = 0;
   let serverOffset = 0; // server clock - container clock (ms)
-  const playback = new Map(); // device id -> nextPlayback()
+  const playback = new Map(); // device id -> nextPlayback() / playbackFromLive()
   const observations = new Map(); // device id -> observationOf()
+  // Remote control (JewelBox 1.18+).
+  const capabilities = new Map(); // device id -> capabilities ever announced (/data)
+  const liveEntries = new Map(); // device id -> the last row of /api/player/remote/devices
+  let remoteSupported = null; // null: unknown yet, false: an older server
+  let remoteCheckedAt = 0;
+  let watcher = null; // { abort: AbortController, url }
+  let watchRound = null;
 
   const created = new Map(); // device external id -> { type, id, name }
   let discoveredKey = '';
@@ -348,6 +383,7 @@ export function createApp(gladys, deps = {}) {
         reachable = true;
         lastError = '';
         if (moved) {
+          remoteSupported = null;
           logger.info(`JewelBox: server ${found.name} ${found.version} at ${found.url}`);
           await saveServer();
         }
@@ -388,11 +424,22 @@ export function createApp(gladys, deps = {}) {
     const devices = [buildCollectionDevice(gladys, server, config.language)];
     for (const player of recentPlayers()) {
       devices.push(
-        buildPlayerDevice(gladys, player.device_id, names.get(player.device_id), config.language),
+        buildPlayerDevice(
+          gladys,
+          player.device_id,
+          names.get(player.device_id),
+          config.language,
+          capabilities.get(player.device_id) ?? null,
+        ),
       );
     }
     const key = JSON.stringify(
-      devices.map((device) => [device.external_id, device.name, config.language]),
+      devices.map((device) => [
+        device.external_id,
+        device.name,
+        config.language,
+        device.features.length,
+      ]),
     );
     if (!force && key === discoveredKey) return;
     discoveredKey = key;
@@ -416,12 +463,19 @@ export function createApp(gladys, deps = {}) {
     // The playback state and the `music` features: one batch of what
     // changed, the position only on a change or a drift (never a stream).
     const snapshot = nowPlayingOf(current, now() + serverOffset);
-    if (!snapshot || !created.has(ids.device)) return;
+    const device = created.get(ids.device);
+    if (!snapshot || !device) return;
+    // Only the types the device has (volume, mute… depend on the player).
+    const featureExternalIds = nowPlayingFeatureIds(gladys, id);
+    const known = device.features?.size ? device.features : null;
+    for (const [type, featureId] of Object.entries(featureExternalIds)) {
+      if (known && !known.has(featureId)) {
+        delete featureExternalIds[type];
+        delete snapshot[type];
+      }
+    }
     await safely(
-      () =>
-        gladys.publishNowPlaying(ids.device, snapshot, {
-          featureExternalIds: nowPlayingFeatureIds(gladys, id),
-        }),
+      () => gladys.publishNowPlaying(ids.device, snapshot, { featureExternalIds }),
       'publishing the now playing',
     );
   };
@@ -444,13 +498,18 @@ export function createApp(gladys, deps = {}) {
     players = answer.devices;
     serverNow = answer.serverNow;
     serverOffset = serverNow - now();
+    await readRemote();
     const byId = new Map(players.map((player) => [player.device_id, player]));
     for (const id of createdOf(DEVICE_TYPES.PLAYER)) {
       const entry = byId.get(id);
       const previous = playback.get(id) ?? null;
+      // The player said what it does (JewelBox 1.18+): no inference.
+      const live = playbackFromLive(liveEntries.get(id), entry?.source_label ?? '');
       let observation = null;
       let at = serverNow;
-      if (entry) {
+      if (live) {
+        observations.delete(id);
+      } else if (entry) {
         const known = observations.get(id);
         const unchanged =
           known &&
@@ -465,8 +524,8 @@ export function createApp(gladys, deps = {}) {
         }
       }
       if (observation) observations.set(id, observation);
-      else observations.delete(id);
-      const next = nextPlayback(previous, observation, at);
+      else if (!live) observations.delete(id);
+      const next = live ?? nextPlayback(previous, observation, at);
       playback.set(id, next);
       if (announce) {
         const device = playerIds(gladys, id).device;
@@ -488,6 +547,103 @@ export function createApp(gladys, deps = {}) {
       [...playback].map(([id, value]) => [id, value.playing, value.trackId, value.source]),
     );
     await publishDiscovered();
+  };
+
+  /**
+   * @description Read the live state of the players and remember the
+   * capabilities of the ones that accept remote control. The players seen
+   * only here (no queue yet) join the list of the server.
+   * @returns {Promise<void>}
+   */
+  const readRemote = async () => {
+    // An older server is asked again from time to time: it may be updated.
+    if (remoteSupported === false && now() - remoteCheckedAt < REMOTE_RECHECK_MS) return;
+    remoteCheckedAt = now();
+    const answer = await call((url) => client.remoteDevices(url));
+    if (answer.devices === null) {
+      remoteSupported = false;
+      liveEntries.clear();
+      return;
+    }
+    remoteSupported = true;
+    liveEntries.clear();
+    let changed = false;
+    for (const entry of answer.devices) {
+      if (!isPlayerId(entry?.device_id)) continue;
+      liveEntries.set(entry.device_id, entry);
+      if (entry.controllable) {
+        const announced = capabilitiesOf(entry.capabilities);
+        const known = capabilities.get(entry.device_id);
+        if (!known || known.join(',') !== announced.join(',')) {
+          capabilities.set(entry.device_id, announced);
+          changed = true;
+        }
+      }
+      if (!players.some((player) => player.device_id === entry.device_id)) {
+        players.push({
+          device_id: entry.device_id,
+          device_label: entry.device_label,
+          updated_at: entry.state?.reported_at ?? new Date(serverNow).toISOString(),
+          current_index: entry.state?.current_index ?? -1,
+        });
+      }
+    }
+    if (changed) {
+      await safely(
+        () => storage.write(PLAYERS_FILE, { capabilities: Object.fromEntries(capabilities) }),
+        'saving /data',
+      );
+    }
+    ensureWatch();
+  };
+
+  // --- Watch stream ----------------------------------------------------------------------------
+  //
+  // The changes of the players as they happen (a command confirmed, a pause
+  // on the phone): a round right after, so the dashboard follows within a
+  // second instead of at the next 10 s round. Reopened with a growing delay;
+  // dropped on an older server, at a server change and at stop.
+
+  const stopWatch = () => {
+    watcher?.abort.abort();
+    watcher = null;
+  };
+
+  const ensureWatch = () => {
+    if (stopped || !server || remoteSupported !== true) return;
+    if (watcher?.url === server.url) return;
+    stopWatch();
+    const abort = new AbortController();
+    const url = server.url;
+    watcher = { abort, url };
+    (async () => {
+      let delay = WATCH_RETRY_MIN_MS;
+      while (!abort.signal.aborted) {
+        let opened = false;
+        try {
+          await client.watch(url, {
+            signal: abort.signal,
+            onEvent: (event) => {
+              opened = true;
+              if (event === 'device' || event === 'gone') {
+                clearTimeout(watchRound);
+                watchRound = setTimeout(() => playerRound(), WATCH_ROUND_DELAY_MS);
+                watchRound.unref?.();
+              }
+            },
+          });
+        } catch (error) {
+          if (error instanceof JewelBoxError && error.status === 404) {
+            remoteSupported = false;
+            break;
+          }
+        }
+        if (abort.signal.aborted) break;
+        delay = opened ? WATCH_RETRY_MIN_MS : Math.min(WATCH_RETRY_MAX_MS, delay * 2);
+        await sleep(delay);
+      }
+      if (watcher?.abort === abort) watcher = null;
+    })();
   };
 
   const scheduleRound = (which, delay) => {
@@ -649,7 +805,14 @@ export function createApp(gladys, deps = {}) {
     if (!parsed) return null;
     const name =
       typeof device.name === 'string' && device.name.trim() ? device.name.trim() : parsed.id;
-    created.set(device.external_id, { ...parsed, name });
+    // The features it really has: a player created before it accepted remote
+    // control keeps its read-only features until the user updates it.
+    const features = new Set(
+      (Array.isArray(device.features) ? device.features : [])
+        .map((feature) => feature?.external_id)
+        .filter((id) => typeof id === 'string'),
+    );
+    created.set(device.external_id, { ...parsed, name, features });
     return parsed;
   };
 
@@ -687,9 +850,239 @@ export function createApp(gladys, deps = {}) {
     Object.values(WIDGETS).forEach((key) => refreshWidget(key, true));
   });
 
-  gladys.onSetValue(async (device, feature) => {
-    // Every feature is read-only: JewelBox cannot be commanded.
-    throw new Error(`${feature?.external_id ?? 'this feature'} is read-only`);
+  // --- Remote control --------------------------------------------------------------------------
+
+  /**
+   * @description Send a command to a player, with the errors a user can act on.
+   * @param {string} id - JewelBox device id.
+   * @param {object} body - The command.
+   * @returns {Promise<void>}
+   */
+  const command = async (id, body) => {
+    if (remoteSupported === false) throw new UserError('errorRemoteUnavailable');
+    try {
+      await call((url) => client.command(url, id, body));
+    } catch (error) {
+      if (error instanceof JewelBoxError && error.status === 404 && body.command !== 'play_media') {
+        throw new UserError('errorPlayerOffline', { player: nameOfPlayer(id) });
+      }
+      if (
+        error instanceof JewelBoxError &&
+        error.status === 404 &&
+        !liveEntries.get(id)?.controllable
+      ) {
+        throw new UserError('errorPlayerOffline', { player: nameOfPlayer(id) });
+      }
+      if (error instanceof JewelBoxError && error.status === 422) {
+        throw new UserError('errorPlayerUnsupported', {
+          player: nameOfPlayer(id),
+          error: error.message,
+        });
+      }
+      throw error;
+    }
+    // The player confirms through its live state: the watch stream brings
+    // it; this round is the fallback for a stream not (yet) open.
+    clearTimeout(watchRound);
+    watchRound = setTimeout(() => playerRound(), 1000);
+    watchRound.unref?.();
+  };
+
+  const playerOfDevice = (device) => {
+    const parsed = parseExternalId(gladys, device?.external_id);
+    if (parsed?.type !== DEVICE_TYPES.PLAYER) throw new Error('not a JewelBox player');
+    return parsed.id;
+  };
+
+  gladys.onSetValue(async (device, feature, value) => {
+    const parsed = parseExternalId(gladys, feature?.external_id ?? device?.external_id);
+    const key = String(feature?.external_id ?? '')
+      .split(':')
+      .pop();
+    const body = parsed?.type === DEVICE_TYPES.PLAYER ? commandOf(key, value) : null;
+    if (!body) throw new Error(`${feature?.external_id ?? 'this feature'} is read-only`);
+    try {
+      await command(parsed.id, body);
+    } catch (error) {
+      throw userFacing(error);
+    }
+  });
+
+  // --- Music players: the catalog of JewelBox ----------------------------------------------------
+
+  const artworkKey = (path) => gladys.artworkKey(path);
+  const page = (items, offset, limit) => items.slice(offset, offset + Math.min(limit, MAX_ITEMS));
+  const smartTitle = (key) => {
+    const text = t(`smart_${key}`, config.language);
+    return text === `smart_${key}` ? key : text;
+  };
+  const tracksText = (count) => t('tracksCount', config.language, { count });
+
+  const browse = async (parentId, offset, limit) => {
+    if (parentId === null || parentId === undefined || parentId === '') {
+      const titles = {
+        albums: t('folderAlbums', config.language),
+        playlists: t('folderPlaylists', config.language),
+        smart: t('folderSmart', config.language),
+      };
+      return {
+        items: ROOT_FOLDERS.map((key) => folderItem(key, titles[key])),
+        total: ROOT_FOLDERS.length,
+      };
+    }
+    const parsed = parseMediaId(parentId);
+    if (!parsed) throw new Error(`Unknown folder: ${parentId}`);
+    if (parsed.kind === 'folder' && parsed.id === 'albums') {
+      // /api/albums pages by its own size: the offset of Gladys is any number.
+      const size = Math.min(limit, MAX_ITEMS);
+      const first = Math.floor(offset / size) + 1;
+      const answer = await call((url) =>
+        client.albums(url, {
+          page: first,
+          limit: size,
+          sort: 'artist',
+          order: 'asc',
+          wanted: 'false',
+        }),
+      );
+      const skip = offset - (first - 1) * size;
+      let data = answer.data.slice(skip);
+      if (skip > 0 && data.length < size && answer.total > first * size) {
+        const more = await call((url) =>
+          client.albums(url, {
+            page: first + 1,
+            limit: size,
+            sort: 'artist',
+            order: 'asc',
+            wanted: 'false',
+          }),
+        );
+        data = data.concat(more.data).slice(0, size);
+      }
+      return { items: data.map((album) => albumItem(album, artworkKey)), total: answer.total };
+    }
+    if (parsed.kind === 'folder' && parsed.id === 'playlists') {
+      const lists = await call((url) => client.playlists(url));
+      return {
+        items: page(lists, offset, limit).map((list) =>
+          playlistItem(list, Number.isFinite(list.track_count) ? tracksText(list.track_count) : ''),
+        ),
+        total: lists.length,
+      };
+    }
+    if (parsed.kind === 'folder' && parsed.id === 'smart') {
+      const lists = await call((url) => client.smartPlaylists(url));
+      return {
+        items: page(lists, offset, limit).map((list) =>
+          smartItem(
+            list,
+            smartTitle(list.key),
+            Number.isFinite(list.track_count) ? tracksText(list.track_count) : '',
+          ),
+        ),
+        total: lists.length,
+      };
+    }
+    if (parsed.kind === 'album') {
+      const album = await call((url) => client.album(url, parsed.id));
+      const tracks = (album?.tracks ?? []).map((track) => trackItem(track, artworkKey, album));
+      const items = [albumRadioItem(album, t('albumRadio', config.language)), ...tracks];
+      return { items: page(items, offset, limit), total: items.length };
+    }
+    if (parsed.kind === 'playlist' || parsed.kind === 'smart') {
+      const list =
+        parsed.kind === 'playlist'
+          ? await call((url) => client.playlist(url, parsed.id))
+          : await call((url) => client.smartPlaylist(url, parsed.id));
+      const tracks = (list?.tracks ?? []).map((track) => trackItem(track, artworkKey));
+      return { items: page(tracks, offset, limit), total: tracks.length };
+    }
+    throw new Error(`Not a folder: ${parentId}`);
+  };
+
+  gladys.onMusicBrowse(async (device, { parentId = null, offset = 0, limit = MAX_ITEMS } = {}) => {
+    playerOfDevice(device);
+    try {
+      return await browse(parentId, offset, limit);
+    } catch (error) {
+      throw userFacing(error);
+    }
+  });
+
+  gladys.onMusicSearch(
+    async (device, { query: text = '', type = null, limit = MAX_ITEMS } = {}) => {
+      playerOfDevice(device);
+      const clean = String(text ?? '').trim();
+      if (clean.length < 2) return { items: [] };
+      let answer;
+      try {
+        answer = await call((url) => client.search(url, clean));
+      } catch (error) {
+        throw userFacing(error);
+      }
+      const albums = Array.isArray(answer?.albums) ? answer.albums : [];
+      const tracks = Array.isArray(answer?.tracks) ? answer.tracks : [];
+      // Artists: those of the albums found whose name matches (played as a radio).
+      const artists = new Map();
+      for (const album of albums) {
+        const artist = album.artist;
+        if (artist?.id && sameText(String(artist.name ?? '').slice(0, clean.length), clean)) {
+          artists.set(artist.id, artist);
+        }
+      }
+      const items = [
+        ...(type === null || type === 'artist'
+          ? [...artists.values()].map((artist) =>
+              artistItem(artist, t('artistRadio', config.language)),
+            )
+          : []),
+        ...(type === null || type === 'album'
+          ? albums.map((album) => albumItem(album, artworkKey))
+          : []),
+        ...(type === null || type === 'track'
+          ? tracks.map((track) => trackItem(track, artworkKey))
+          : []),
+      ];
+      return { items: items.slice(0, Math.min(limit, MAX_ITEMS)) };
+    },
+  );
+
+  gladys.onMusicPlay(async (device, media, mode = 'replace') => {
+    const id = playerOfDevice(device);
+    const target = playMediaOf(media?.id);
+    if (!target) throw new Error(`Not playable: ${media?.id}`);
+    try {
+      await command(id, { command: 'play_media', media: target, mode });
+    } catch (error) {
+      throw userFacing(error);
+    }
+  });
+
+  gladys.onMusicQueueGet(async (device, { offset = 0, limit = MAX_ITEMS } = {}) => {
+    const id = playerOfDevice(device);
+    let queue;
+    try {
+      ({ queue } = await call((url) => client.queue(url, id)));
+    } catch (error) {
+      throw userFacing(error);
+    }
+    const tracks = Array.isArray(queue?.tracks) ? queue.tracks : [];
+    const live = liveEntries.get(id)?.state;
+    const index = Number.isInteger(live?.current_index) ? live.current_index : queue?.current_index;
+    return {
+      items: page(tracks, offset, limit).map((track) => trackItem(track, artworkKey)),
+      currentIndex: Number.isInteger(index) && index >= 0 && index < tracks.length ? index : null,
+      total: tracks.length,
+    };
+  });
+
+  gladys.onMusicQueuePlay(async (device, index) => {
+    const id = playerOfDevice(device);
+    try {
+      await command(id, { command: 'play_index', index: Number(index) });
+    } catch (error) {
+      throw userFacing(error);
+    }
   });
 
   gladys.onScanRequest(async () => {
@@ -706,6 +1099,8 @@ export function createApp(gladys, deps = {}) {
       server = null;
       reachable = false;
       base = null;
+      remoteSupported = null;
+      stopWatch();
       lastStatus = null;
       await locate({ force: true });
       if (server && reachable) {
@@ -1061,6 +1456,10 @@ export function createApp(gladys, deps = {}) {
     for (const key of Array.isArray(saved?.loans) ? saved.loans : []) {
       if (typeof key === 'string') reminded.add(key);
     }
+    const known = await safely(() => storage.read(PLAYERS_FILE), 'reading /data');
+    for (const [id, list] of Object.entries(known?.capabilities ?? {})) {
+      if (isPlayerId(id)) capabilities.set(id, capabilitiesOf(list));
+    }
     const devices = (await safely(() => gladys.getDevices(), 'reading the devices')) ?? [];
     for (const device of Array.isArray(devices) ? devices : []) track(device);
     await locate();
@@ -1070,6 +1469,8 @@ export function createApp(gladys, deps = {}) {
 
   const stop = async () => {
     stopped = true;
+    stopWatch();
+    clearTimeout(watchRound);
     for (const key of Object.keys(timers)) {
       clearTimeout(timers[key]);
       timers[key] = null;
@@ -1090,6 +1491,7 @@ export function createApp(gladys, deps = {}) {
     created,
     playback,
     reminded,
+    capabilities,
     get server() {
       return server;
     },

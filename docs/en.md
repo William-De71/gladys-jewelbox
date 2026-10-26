@@ -31,7 +31,11 @@ In the **Discover** tab, add:
 - **JewelBox collection**: albums, wish list, lent out, artists, average rating, playing time (hours), oldest loan (days). Read every minute.
 - **One device per player** (web app, desktop, Android): playback, track, artist, album, and the now playing of Gladys music players (title, artist, album, cover, duration, position). Read every 10 s, published only when it changes.
 
-A player is “playing” when its position moves at its usual pace: JewelBox stores no play / pause state, so a pause is seen 10 to 50 s late. The players cannot be controlled from Gladys: the “devices in the room” widget shows what they play, the music box of the dashboard does not offer them. A player added before this version gets its new features with the **Update** button of the Discover tab.
+**Controlling the players** needs JewelBox **1.18** or later and an up-to-date player (web app, desktop, Android) whose **Allow remote control** setting is on (it is by default). Such a player also gets: play / pause, next and previous track, seek, volume, mute (web app and desktop), shuffle and repeat. The music box of the dashboard then plays the JewelBox catalog on it (albums, playlists, smart playlists, search, the radio of an album or an artist) and shows its queue; the **Play media** scene action of Gladys does the same. A player is controllable while it runs: the web app while its tab is open (the browser may refuse to start the sound until a track was played by hand in that tab), the desktop player while it is open, the Android app while it is open or playing.
+
+With an older JewelBox, or a player not updated, the player stays read-only and its state is deduced: a player is “playing” when its position moves at its usual pace, so a pause is seen 10 to 50 s late. With JewelBox 1.18, every player reports its state at once.
+
+A player added before this version gets its new features with the **Update** button of the Discover tab (once it was seen accepting remote control).
 
 ### Dashboard widgets
 

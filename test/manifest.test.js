@@ -63,7 +63,8 @@ test('the music players need Gladys 5.3.0; no other permission', () => {
   assert.equal(manifest.gladys_version, '>=5.3.0');
   // Now playing and artwork only: JewelBox has no catalog to play from nor
   // any command channel, so no operation is declared.
-  assert.deepEqual(manifest.music, {});
+  // Browse / search / queue / play through the remote control of JewelBox 1.18.
+  assert.deepEqual(manifest.music, { browse: true, search: true, queue: true, append: true });
   assert.deepEqual(manifest.categories, ['multimedia']);
   for (const key of [
     'location',

@@ -90,6 +90,8 @@ async function setup(t, options = {}) {
       ...(options.queue ?? {}),
     });
   }
+  // JewelBox 1.18 (remote control): the live state of the players.
+  if (options.remote) server.state.remote = options.remote(clock);
   const gladys = createFakeGladys({
     config: { language: 'en', ...(options.config ?? {}) },
     devices: options.devices ?? [],
@@ -675,4 +677,295 @@ test('read-only features: a command is refused', async (t) => {
 
 test('sqlDate of the fake server is what SQLite writes', () => {
   assert.equal(sqlDate(START), '2026-10-24 16:00:00');
+});
+
+// --- Remote control (JewelBox 1.18) ------------------------------------------------------------
+
+const LIVE_PLAYING = (clock, changes = {}) => ({
+  playback_state: 'playing',
+  position_sec: 40,
+  duration_sec: 300,
+  current_index: 0,
+  volume: 70,
+  muted: false,
+  shuffle: false,
+  repeat: 'off',
+  reported_at: new Date(clock).toISOString(),
+  track: {
+    id: 4955,
+    title: 'Revelation',
+    duration: '5:00',
+    album_id: 7,
+    album_title: 'Heaven Upside Down',
+    artist_name: 'Marilyn Manson',
+    cover_url: `/covers/${COVER}.jpeg`,
+  },
+  ...changes,
+});
+
+const remoteSetup = (t, entry = {}) =>
+  setup(t, {
+    queue: {},
+    remote: (clock) =>
+      new Map([
+        [
+          PLAYER_ID,
+          {
+            label: 'JewelBox bureau · wsmd-fed-2',
+            controllable: true,
+            capabilities: [
+              'seek',
+              'volume',
+              'mute',
+              'shuffle',
+              'repeat',
+              'queue',
+              'play_media',
+              'append',
+            ],
+            state: LIVE_PLAYING(clock),
+            ...entry,
+          },
+        ],
+      ]),
+  });
+
+const playerDevice = (ctx) => ctx.gladys.fake.devices.find((d) => d.external_id === PLAYER);
+const featureOf = (ctx, key) =>
+  playerDevice(ctx).features.find((f) => f.external_id === `${PLAYER}:${key}`);
+
+test('remote control: a controllable player gets its controls, remembered in /data', async (t) => {
+  const ctx = await remoteSetup(t);
+  await ctx.app.playerRound();
+  const offered = ctx.gladys.fake.discoveredDevices.find((d) => d.external_id === PLAYER);
+  const keys = offered.features.map((f) => f.external_id.split(':').at(-1));
+  for (const key of ['next', 'previous', 'volume', 'mute', 'shuffle', 'repeat']) {
+    assert.ok(keys.includes(key), key);
+  }
+  const playing = offered.features.find((f) => f.external_id.endsWith(':playing'));
+  assert.equal(playing.read_only, false);
+  assert.equal(playing.has_feedback, true);
+  assert.deepEqual(
+    playing.supported_options.map((o) => o.value),
+    [0, 1],
+  );
+  assert.equal(
+    offered.features.find((f) => f.external_id.endsWith(':music_position')).read_only,
+    false,
+  );
+  assert.deepEqual(ctx.storage.files['players.json'], {
+    capabilities: {
+      [PLAYER_ID]: ['append', 'mute', 'play_media', 'queue', 'repeat', 'seek', 'shuffle', 'volume'],
+    },
+  });
+
+  // Offline later (remote control turned off): the controls stay.
+  ctx.server.state.remote.get(PLAYER_ID).controllable = false;
+  await ctx.app.playerRound();
+  const again = ctx.gladys.fake.discoveredDevices.find((d) => d.external_id === PLAYER);
+  assert.equal(again.features.length, offered.features.length);
+});
+
+test('remote control: an Android player (no mute) has no mute feature', async (t) => {
+  const ctx = await remoteSetup(t, {
+    capabilities: ['seek', 'volume', 'shuffle', 'repeat', 'queue', 'play_media', 'append'],
+  });
+  await ctx.app.playerRound();
+  const offered = ctx.gladys.fake.discoveredDevices.find((d) => d.external_id === PLAYER);
+  assert.ok(!offered.features.some((f) => f.external_id.endsWith(':mute')));
+});
+
+test('remote control: the live state replaces the inference, volume and modes included', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: START });
+  const ctx = await remoteSetup(t);
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  await ctx.app.playerRound();
+  const value = (key) => ctx.gladys.fake.lastState(`${PLAYER}:${key}`);
+  assert.equal(value('playing'), 1);
+  assert.equal(value('music_title'), 'Revelation');
+  assert.equal(value('music_duration'), 300);
+  assert.equal(value('volume'), 70);
+  assert.equal(value('mute'), 0);
+  assert.equal(value('shuffle'), 0);
+  assert.equal(value('repeat'), 0);
+
+  // A pause reported at once: no 30 s of inference.
+  const entry = ctx.server.state.remote.get(PLAYER_ID);
+  entry.state = LIVE_PLAYING(ctx.now(), { playback_state: 'paused', repeat: 'one', volume: 20 });
+  await ctx.app.playerRound();
+  assert.equal(value('playing'), 0);
+  assert.equal(value('repeat'), 2);
+  assert.equal(value('volume'), 20);
+  assert.equal(ctx.app.playback.get(PLAYER_ID).live, true);
+});
+
+test('remote control: an old device keeps its features, only those get states', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: START });
+  // Created read-only (before JewelBox 1.18), not updated by the user since.
+  const ctx = await setup(t, { queue: {} });
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  ctx.server.state.remote = new Map([
+    [PLAYER_ID, { controllable: true, capabilities: ['volume'], state: LIVE_PLAYING(ctx.now()) }],
+  ]);
+  ctx.app.locate({ force: true });
+  await ctx.app.playerRound();
+  await ctx.app.playerRound(); // an older server is asked again 10 min later only
+  const sent = ctx.gladys.fake.states.map((s) => s.device_feature_external_id.split(':').at(-1));
+  assert.ok(!sent.includes('volume'), 'no state for a feature the device does not have');
+});
+
+test('remote control: a write becomes a command; errors say what to do', async (t) => {
+  const ctx = await remoteSetup(t);
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  const write = (key, value) =>
+    ctx.gladys.fake.setValue(playerDevice(ctx), featureOf(ctx, key), value);
+
+  for (const [key, value] of [
+    ['playing', 0],
+    ['playing', 1],
+    ['next', 1],
+    ['previous', 1],
+    ['music_position', 95],
+    ['volume', 33],
+    ['mute', 1],
+    ['shuffle', 1],
+    ['repeat', 1],
+  ]) {
+    const ack = await write(key, value);
+    assert.equal(ack.success, true, `${key}: ${JSON.stringify(ack)}`);
+  }
+  assert.deepEqual(
+    ctx.server.state.commands.map(([, body]) => body),
+    [
+      { command: 'pause' },
+      { command: 'play' },
+      { command: 'next' },
+      { command: 'previous' },
+      { command: 'seek', position_sec: 95 },
+      { command: 'volume', volume: 33 },
+      { command: 'mute', muted: true },
+      { command: 'shuffle', shuffle: true },
+      { command: 'repeat', repeat: 'all' },
+    ],
+  );
+
+  ctx.server.state.remote.get(PLAYER_ID).controllable = false;
+  const offline = await write('playing', 1);
+  assert.equal(offline.success, false);
+  assert.match(JSON.stringify(offline), /does not allow remote control/);
+
+  ctx.server.state.remote.get(PLAYER_ID).controllable = true;
+  ctx.server.state.refuse = () => 'this player does not support mute';
+  const refused = await write('mute', 1);
+  assert.match(JSON.stringify(refused), /cannot do that/);
+});
+
+test('remote control: a change on the watch stream brings a round at once', async (t) => {
+  const ctx = await remoteSetup(t);
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  await ctx.app.playerRound();
+  for (let i = 0; i < 20 && ctx.server.state.watchers.length === 0; i++) {
+    await new Promise((resolve) => setImmediate(resolve));
+  }
+  assert.equal(ctx.server.state.watchers.length, 1, 'the watch stream is open');
+  const entry = ctx.server.state.remote.get(PLAYER_ID);
+  entry.state = LIVE_PLAYING(ctx.now(), { playback_state: 'paused' });
+  const rounds = () =>
+    ctx.server.calls.filter((c) => c === 'GET /api/player/remote/devices').length;
+  const before = rounds();
+  ctx.server.emit('device', { device_id: PLAYER_ID });
+  await new Promise((resolve) => setTimeout(resolve, 400));
+  await ctx.app.playerRound();
+  assert.ok(rounds() > before);
+  assert.equal(ctx.gladys.fake.lastState(`${PLAYER}:playing`), 0);
+});
+
+test('music players: browse the catalog, search, play, queue', async (t) => {
+  const ctx = await remoteSetup(t);
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  const device = playerDevice(ctx);
+
+  const root = await ctx.gladys.fake.musicBrowse(device, {});
+  assert.equal(root.success, true, JSON.stringify(root));
+  assert.deepEqual(
+    root.data.items.map((i) => i.id),
+    ['folder:albums', 'folder:playlists', 'folder:smart'],
+  );
+  const albums = await ctx.gladys.fake.musicBrowse(device, { parentId: 'folder:albums' });
+  assert.deepEqual(
+    albums.data.items.map((i) => [i.id, i.type, i.subtitle]),
+    [
+      ['album:1', 'album', 'Opeth'],
+      ['album:2', 'album', 'Opeth'],
+    ],
+  );
+  assert.equal(albums.data.total, 2);
+  assert.match(albums.data.items[0].artwork_key, /^art-/);
+  const smart = await ctx.gladys.fake.musicBrowse(device, { parentId: 'folder:smart' });
+  assert.deepEqual(
+    smart.data.items.map((i) => [i.id, i.title]),
+    [
+      ['smart:favourites', 'Favourites'],
+      ['smart:dynamic_mix', 'Dynamic mix'],
+    ],
+  );
+  const playlists = await ctx.gladys.fake.musicBrowse(device, { parentId: 'folder:playlists' });
+  assert.deepEqual(playlists.data.items[0], {
+    id: 'playlist:3',
+    type: 'playlist',
+    title: 'Road trip',
+    subtitle: '2 tracks',
+    browsable: true,
+    playable: true,
+  });
+
+  ctx.server.state.albums[0].tracks = [
+    { id: 11, position: 1, title: 'The Leper Affinity', duration: '10:23', has_file: true },
+    { id: 12, position: 2, title: 'Bleak', duration: '9:16', has_file: false },
+  ];
+  const album = await ctx.gladys.fake.musicBrowse(device, { parentId: 'album:1' });
+  assert.deepEqual(
+    album.data.items.map((i) => [i.id, i.type, i.duration ?? null, i.playable]),
+    [
+      ['radio:album:1', 'radio', null, true],
+      ['track:11', 'track', 623, true],
+      ['track:12', 'track', 556, false],
+    ],
+  );
+
+  const found = await ctx.gladys.fake.musicSearch(device, { query: 'opeth' });
+  assert.deepEqual(
+    found.data.items.map((i) => i.id),
+    ['artist:1', 'album:1', 'album:2'],
+  );
+
+  for (const [id, mode, media] of [
+    ['album:2', 'replace', { type: 'album', id: 2 }],
+    ['track:11', 'next', { type: 'track', id: 11 }],
+    ['smart:dynamic_mix', 'replace', { type: 'smart', id: 'dynamic_mix' }],
+    ['artist:1', 'append', { type: 'artist_radio', id: 1 }],
+    ['radio:album:1', 'replace', { type: 'album_radio', id: 1 }],
+  ]) {
+    const ack = await ctx.gladys.fake.musicPlay(device, { id, type: 'album' }, mode);
+    assert.equal(ack.success, true, `${id}: ${JSON.stringify(ack)}`);
+    assert.deepEqual(ctx.server.state.commands.at(-1)[1], { command: 'play_media', media, mode });
+  }
+  assert.equal(
+    (await ctx.gladys.fake.musicPlay(device, { id: 'folder:albums', type: 'folder' })).success,
+    false,
+  );
+
+  const queue = await ctx.gladys.fake.musicQueueGet(device, {});
+  assert.equal(queue.success, true, JSON.stringify(queue));
+  assert.equal(queue.data.total, 3);
+  assert.equal(queue.data.current_index, 0, 'current_index on the wire');
+  assert.equal(queue.data.items[1].id, 'track:4956');
+  const jump = await ctx.gladys.fake.musicQueuePlay(device, 2);
+  assert.equal(jump.success, true);
+  assert.deepEqual(ctx.server.state.commands.at(-1)[1], { command: 'play_index', index: 2 });
 });

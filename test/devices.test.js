@@ -145,7 +145,14 @@ test('now playing: the position sampled now, the cover path, texts cleared witho
 });
 
 test('now playing: every type lands on a feature of the player, the state on `playing`', () => {
-  const player = buildPlayerDevice(gladys, PLAYER, 'JewelBox bureau', 'en');
+  // A player that accepted remote control with every capability has them all.
+  const player = buildPlayerDevice(gladys, PLAYER, 'JewelBox bureau', 'en', [
+    'seek',
+    'volume',
+    'mute',
+    'shuffle',
+    'repeat',
+  ]);
   const byId = new Map(player.features.map((feature) => [feature.external_id, feature]));
   for (const [type, id] of Object.entries(nowPlayingFeatureIds(gladys, PLAYER))) {
     const feature = byId.get(id);

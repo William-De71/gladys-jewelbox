@@ -13,15 +13,18 @@ step) in its own sandboxed Docker container, talking to Gladys through
 its only runtime dependency, and to the JewelBox server on the local network
 (REST `/api`, no authentication, port 3001; `transports: ["local"]`).
 `type: "device"`, Gladys 5.3.0+ (widgets, scenes, mediated mDNS, music players:
-`"music": {}`, now playing and artwork only).
+now playing, artwork, and with JewelBox 1.18+ control, browse, search, queue,
+play).
 
 **Never in the store.** The repository is public (Gladys pulls the image
 anonymously and reads the manifest of `main`), but it must never carry the
 `gladys-assistant-integration` topic: the `verify` job of `release.yml` fails
 if it does. Installed from the URL of the repository.
 
-Tested against a real JewelBox 1.17.0 (read-only run, 2026-10-24); the tests
-use a fake server (`test/helpers/fake-jewelbox.js`) with the same shapes.
+Tested against a real JewelBox 1.17.0 (read-only run, 2026-10-24); the remote
+control end to end against a server built from the JewelBox working tree of
+1.18 with a simulated player (2026-10-26), never yet in a real Gladys. The
+tests use a fake server (`test/helpers/fake-jewelbox.js`) with the same shapes.
 
 ## Commands
 
@@ -47,7 +50,10 @@ src/app.js            every handler: locate the server (typed address, /data, mD
                       events and actions, widgets, cover images, configuration button
 src/client.js         HTTP client of JewelBox (X-Device-Id header, typed errors,
                       server clock from the Date header), SQLite dates
-src/playback.js       is a player playing? deduced from the queue writes (pure)
+src/playback.js       is a player playing? deduced from the queue writes (pure),
+                      the fallback of JewelBox < 1.18
+src/remote.js         remote control (pure): live state → playback, writes →
+                      commands, media ids, MediaItems of the catalog
 src/collection.js     what changed between two readings: added, left the wish
                       list, lent, returned, overdue (pure)
 src/devices.js        the collection and player devices, feature values, the
@@ -55,7 +61,7 @@ src/devices.js        the collection and player devices, feature values, the
 src/scenes.js         trigger / action keys, event data, player transitions
 src/widgets.js        the five widgets (pure, reused by docs/illustrations), cover keys
 src/states.js         state publication: created devices only, coalesced, 240/min, 429 pause
-src/storage.js        /data: server.json, reminders.json
+src/storage.js        /data: server.json, reminders.json, players.json (capabilities)
 src/config.js         address, language, loan reminder, age of the players offered
 src/i18n.js           runtime texts, en / fr
 test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illustrations
@@ -74,11 +80,19 @@ test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illust
   `test/structure.test.js` compares them to
   `test/fixtures/discovery.baseline.json`: never update it to make a test pass
   without a documented migration.
-- **Read-only devices.** JewelBox cannot command a player; `onSetValue`
-  refuses. Controlling the players needs a command channel in JewelBox first
-  (server + web app + desktop + Android). So no `music` operation is declared
-  (no browse / search / queue / play), and no music box on the dashboard (it
-  needs `play` or a writable `playback_state`).
+- **Remote control** (JewelBox 1.18+): a player that announced it accepts
+  remote control (`controllable` in `/api/player/remote/devices`) gets its
+  controls; its capabilities are remembered in `/data/players.json` so the
+  features never come and go when it is closed. Its `playing` (min / max 0 /
+  1 forever) and `music_position` (with `seek`) become writable, with
+  `has_feedback`: the player confirms through its live state. Every write
+  is a command (`commandOf`), nothing is saved by the integration. A device
+  created before keeps its features until the user updates it: publish only
+  the `music` types the created device has (`created` keeps its features).
+  The live state replaces the inference of `src/playback.js` when present.
+- **Media ids** (`src/remote.js`) are forever too (scenes store them):
+  `album:<id>`, `playlist:<id>`, `smart:<key>`, `track:<id>`,
+  `artist:<id>` (the artist radio), `radio:album:<id>`, `folder:<key>`.
 - **Now playing** goes through `gladys.publishNowPlaying` (diff, one batch),
   only for created players, from the rounds and at a device creation: never
   on a timer of its own. The playback state stays the `playing` feature of
@@ -88,8 +102,11 @@ test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illust
   through `src/states.js`. Clearing a `music` text is `''` (5.3.0 accepts it),
   unlike the text features (`NO_TEXT`).
 - **Writes to JewelBox** only from the scene actions `lend_album`,
-  `return_album` and `scan_library`, never from a round or a widget.
-- **Scene events** come from the rounds only: never at the first reading,
+  `return_album` and `scan_library`, and the commands of the remote control
+  (a write on a player feature, the music handlers), never from a round or
+  a widget.
+- **Scene events** come from the rounds only (the watch stream only asks
+  for a round): never at the first reading,
   never when the active collection changed, never for a bulk import
   (`MAX_ADDED`), never for a change made by a scene action (the base is
   updated at once: no loop).
@@ -118,7 +135,9 @@ test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illust
 ## Assumptions
 
 - The players write their position every 10 s (web app) or 30 s (desktop,
-  Android) while playing and once at a pause (JewelBox 1.17.0). If a player
+  Android) while playing and once at a pause (JewelBox 1.17.0). From 1.18 a
+  player reports its live state at every change and every 30 s while
+  playing; the server forgets a player without stream silent for 90 s. If a player
   changes its pace, `src/playback.js` learns it (60 s at most).
 - `updated_at` of a queue is UTC without zone (SQLite `datetime('now')`);
   `lent_at` is an ISO date.
@@ -136,6 +155,10 @@ test/helpers/fake-jewelbox.js   the fake JewelBox server of the tests and illust
   player is read again only when its `updated_at` or index changed.
 - The genre filter of `/api/albums` is case-sensitive: `random_album` maps the
   genre typed in a scene to the exact one first (`/api/albums/genres`).
+- `/api/albums` has no artist filter: the catalog has no Artists folder, the
+  artists come from the search (the artist of an album found).
+- The web app can be refused the sound of a remote `play` by the browser
+  (autoplay) until a track was played by hand in its tab.
 - A card-list subtitle is 60 characters at most (the borrower is cut first).
 - The validator of the Gladys core creates `gladys-development.duckdb` in the
   current folder: run it from elsewhere.

@@ -58,6 +58,16 @@ export function createFakeJewelBox({ now }) {
     queues: new Map(),
     suggestions: null,
     scan: { running: false, result: null },
+    // Remote control (JewelBox 1.18): null for an older server (no routes);
+    // else device id -> { label, controllable, capabilities, state }.
+    remote: null,
+    commands: [], // [device id, body] received
+    watchers: [], // stream controllers of /api/player/remote/watch
+    playlists: [{ id: 3, name: 'Road trip', track_count: 2, tracks: [] }],
+    smart: [
+      { key: 'favourites', track_count: 1 },
+      { key: 'dynamic_mix', track_count: 50 },
+    ],
     coverBytes: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]),
   };
   const calls = [];
@@ -201,7 +211,7 @@ export function createFakeJewelBox({ now }) {
     }
     if ((match = /^\/api\/albums\/(\d+)$/.exec(pathname))) {
       const album = state.albums.find((item) => item.id === Number(match[1]));
-      return album ? json({ ...album, tracks: [] }) : json({ error: 'Album not found' }, 404);
+      return album ? json({ tracks: [], ...album }) : json({ error: 'Album not found' }, 404);
     }
     if (pathname === '/api/player/home') {
       const suggestions =
@@ -235,6 +245,68 @@ export function createFakeJewelBox({ now }) {
       const queue = queueOf(decodeURIComponent(match[1]));
       return queue ? json(queue) : json({ error: 'No queue for this device' }, 404);
     }
+    if (pathname.startsWith('/api/player/remote/') && !state.remote) {
+      return json({ error: 'Not found' }, 404);
+    }
+    if (pathname === '/api/player/remote/devices') {
+      return json({
+        data: [...state.remote].map(([id, entry]) => ({
+          device_id: id,
+          device_label: entry.label ?? null,
+          controllable: Boolean(entry.controllable),
+          capabilities: entry.controllable ? (entry.capabilities ?? []) : [],
+          state: entry.state ?? null,
+        })),
+      });
+    }
+    if ((match = /^\/api\/player\/remote\/devices\/(.+)\/commands$/.exec(pathname))) {
+      const id = decodeURIComponent(match[1]);
+      const entry = state.remote.get(id);
+      if (!entry?.controllable) return json({ error: 'not connected' }, 404);
+      const body = JSON.parse(init.body);
+      if (state.refuse?.(body)) return json({ error: state.refuse(body) }, 422);
+      state.commands.push([id, body]);
+      return json({ id: `c${state.commands.length}` }, 202);
+    }
+    if (pathname === '/api/player/remote/watch') {
+      const stream = new ReadableStream({
+        start(controller) {
+          state.watchers.push(controller);
+          init.signal?.addEventListener('abort', () => {
+            try {
+              controller.error(new DOMException('aborted', 'AbortError'));
+            } catch {
+              // already closed
+            }
+          });
+        },
+      });
+      return new Response(stream, {
+        status: 200,
+        headers: { 'content-type': 'text/event-stream', date: new Date(now()).toUTCString() },
+      });
+    }
+    if (pathname === '/api/playlists') return json({ data: state.playlists });
+    if ((match = /^\/api\/playlists\/(\d+)$/.exec(pathname))) {
+      const list = state.playlists.find((item) => item.id === Number(match[1]));
+      return list ? json(list) : json({ error: 'Playlist not found' }, 404);
+    }
+    if (pathname === '/api/smart-playlists') return json({ data: state.smart });
+    if ((match = /^\/api\/smart-playlists\/([a-z_]+)$/.exec(pathname))) {
+      return json({ key: match[1], tracks: state.smartTracks ?? [] });
+    }
+    if (pathname === '/api/player/search') {
+      const q = (searchParams.get('q') ?? '').toLowerCase();
+      const albums = state.albums.filter(
+        (album) =>
+          !album.is_wanted &&
+          (album.title.toLowerCase().includes(q) || album.artist.name.toLowerCase().includes(q)),
+      );
+      return json({
+        albums,
+        tracks: (state.searchTracks ?? []).filter((t) => t.title.toLowerCase().includes(q)),
+      });
+    }
     if (pathname === '/api/player/scan' && method === 'POST') {
       if (state.scan.running) return json({ error: 'Scan already running' }, 409);
       state.scan = {
@@ -260,5 +332,17 @@ export function createFakeJewelBox({ now }) {
     return json({ error: 'Not found' }, 404);
   };
 
-  return { fetch, state, calls };
+  // Pushes one event to the open watch streams.
+  const emit = (event, data) => {
+    const bytes = new TextEncoder().encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    for (const controller of state.watchers) {
+      try {
+        controller.enqueue(bytes);
+      } catch {
+        // closed
+      }
+    }
+  };
+
+  return { fetch, state, calls, emit };
 }

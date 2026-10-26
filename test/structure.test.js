@@ -6,7 +6,9 @@
 //
 // test/fixtures/discovery.baseline.json was generated from version 0.1.0 (the
 // first release), then extended with the features added since (the `music_*`
-// features of the players, Gladys 5.3.0): additions only. A failure here means existing users would have to delete
+// features of the players, Gladys 5.3.0; the player that accepts remote
+// control, JewelBox 1.18, a device of its own in the baseline: its `playing`
+// and `music_position` become writable, the controls are added): additions only. A failure here means existing users would have to delete
 // and recreate a device, or would lose a scene or a widget setting: never
 // update the baseline without a documented migration
 // (UPDATE_BASELINE=1 npm test rewrites it, on purpose only).
@@ -63,6 +65,18 @@ const devices = () => ({
   ),
   player: shape(
     buildPlayerDevice(fakeGladys, '249102a0-f41b-4c4c-b17a-ec3eee29edf4', 'JewelBox', 'en'),
+  ),
+  controllable_player: shape(
+    buildPlayerDevice(fakeGladys, '249102a0-f41b-4c4c-b17a-ec3eee29edf4', 'JewelBox', 'en', [
+      'append',
+      'mute',
+      'play_media',
+      'queue',
+      'repeat',
+      'seek',
+      'shuffle',
+      'volume',
+    ]),
   ),
 });
 
