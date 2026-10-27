@@ -5,6 +5,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/). This file is generated at
 each release from the Conventional Commits: do not edit it by hand.
 
+## [0.6.0] - 2026-10-27
+
+### Added
+
+- listening counters on the collection and a "my listening" view of its widget ([af870b1](https://github.com/William-De71/gladys-jewelbox/commit/af870b1d639ad80e207accea165816ea5d1aa569))
+
 ## [0.5.0] - 2026-10-27
 
 ### Added
@@ -40,6 +46,7 @@ each release from the Conventional Commits: do not edit it by hand.
 - **widgets:** the player with its cover, the collection (counters, albums by decade, top genres), the lent albums, the album of the day with an "Another album" button, the recently added covers
 - **i18n:** English and French, the languages of JewelBox
 
+[0.6.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.2.0...v0.3.0
