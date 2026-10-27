@@ -766,6 +766,43 @@ test('remote control: a controllable player gets its controls, remembered in /da
   assert.equal(again.features.length, offered.features.length);
 });
 
+test('sleep_timer: a command to the player, every duration of the scene', async (t) => {
+  const ctx = await remoteSetup(t, {
+    capabilities: ['seek', 'volume', 'queue', 'play_media', 'append', 'sleep_timer'],
+  });
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  const sent = [];
+  for (const duration of ['30', 'end_of_track', 'cancel']) {
+    const ack = await ctx.gladys.fake.sceneAction('sleep_timer', { player: PLAYER, duration });
+    assert.equal(ack.success, true, JSON.stringify(ack));
+    assert.deepEqual(ack.data.outputs, { player_name: 'JewelBox bureau · wsmd-fed-2' });
+    sent.push(ctx.server.state.commands.at(-1));
+  }
+  assert.deepEqual(sent, [
+    [PLAYER_ID, { command: 'sleep_timer', minutes: 30 }],
+    [PLAYER_ID, { command: 'sleep_timer', end_of_track: true }],
+    [PLAYER_ID, { command: 'sleep_timer', minutes: 0 }],
+  ]);
+
+  const bad = await ctx.gladys.fake.sceneAction('sleep_timer', {
+    player: PLAYER,
+    duration: 'soon',
+  });
+  assert.match(JSON.stringify(bad), /Unknown sleep timer duration/);
+
+  // A player of an older JewelBox: refused by the server (422), said so.
+  ctx.server.state.refuse = (body) =>
+    body.command === 'sleep_timer' ? 'this player does not support sleep_timer' : null;
+  const old = await ctx.gladys.fake.sceneAction('sleep_timer', { player: PLAYER, duration: '15' });
+  assert.match(JSON.stringify(old), /cannot do that/);
+
+  // Remote control turned off on the player.
+  ctx.server.state.remote.get(PLAYER_ID).controllable = false;
+  const offline = await ctx.gladys.fake.sceneAction('sleep_timer', { duration: '15' });
+  assert.equal(offline.success, false);
+});
+
 test('remote control: an Android player (no mute) has no mute feature', async (t) => {
   const ctx = await remoteSetup(t, {
     capabilities: ['seek', 'volume', 'shuffle', 'repeat', 'queue', 'play_media', 'append'],

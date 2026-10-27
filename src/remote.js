@@ -31,6 +31,7 @@ export const CAPABILITIES = [
   'queue',
   'play_media',
   'append',
+  'sleep_timer',
 ];
 
 export const REPEAT_TO_GLADYS = {

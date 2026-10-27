@@ -77,3 +77,16 @@ test('live state: the playback the player reported', () => {
   assert.equal(playbackFromLive({ state: null }), null);
   assert.equal(playbackFromLive(undefined), null);
 });
+
+test('sleepTimerCommand: delays, end of track, cancel; nothing else', async () => {
+  const { sleepTimerCommand } = await import('../src/scenes.js');
+  assert.deepEqual(sleepTimerCommand('45'), { command: 'sleep_timer', minutes: 45 });
+  assert.deepEqual(sleepTimerCommand(' end_of_track '), {
+    command: 'sleep_timer',
+    end_of_track: true,
+  });
+  assert.deepEqual(sleepTimerCommand('cancel'), { command: 'sleep_timer', minutes: 0 });
+  for (const value of ['0', '721', '1.5', '-5', 'soon', '', null, undefined]) {
+    assert.equal(sleepTimerCommand(value), null, String(value));
+  }
+});

@@ -61,6 +61,10 @@ const TEXTS = {
     en: '{player} is not connected to JewelBox or does not allow remote control (setting of the player).',
     fr: '{player} n’est pas connecté à JewelBox ou n’autorise pas le contrôle à distance (réglage du lecteur).',
   },
+  errorSleepDuration: {
+    en: 'Unknown sleep timer duration: choose a delay, the end of the track or cancel.',
+    fr: 'Durée de minuteur inconnue : choisissez un délai, la fin de la piste ou l’annulation.',
+  },
   errorPlayerUnsupported: {
     en: '{player} cannot do that ({error}).',
     fr: '{player} ne sait pas faire cela ({error}).',

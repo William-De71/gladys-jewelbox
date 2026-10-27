@@ -942,6 +942,105 @@
       ]
     },
     {
+      "key": "sleep_timer",
+      "label": {
+        "en": "JewelBox: sleep timer",
+        "fr": "JewelBox : minuteur de sommeil"
+      },
+      "timeout_seconds": 15,
+      "description": {
+        "en": "Pause a player after a delay (fading out over the last seconds) or at the end of the current track. JewelBox 1.20 or later, with remote control allowed on the player.",
+        "fr": "Met un lecteur en pause après un délai (en baissant le son sur les dernières secondes) ou à la fin de la piste en cours. JewelBox 1.20 ou plus récent, contrôle à distance autorisé sur le lecteur."
+      },
+      "fields": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "Leave empty for the one playing (or the last one used).",
+            "fr": "Laissez vide pour celui qui joue (ou le dernier utilisé)."
+          }
+        },
+        {
+          "key": "duration",
+          "type": "select",
+          "default": "30",
+          "required": true,
+          "label": {
+            "en": "Stop",
+            "fr": "Arrêt"
+          },
+          "options": [
+            {
+              "value": "15",
+              "label": {
+                "en": "In 15 minutes",
+                "fr": "Dans 15 minutes"
+              }
+            },
+            {
+              "value": "30",
+              "label": {
+                "en": "In 30 minutes",
+                "fr": "Dans 30 minutes"
+              }
+            },
+            {
+              "value": "45",
+              "label": {
+                "en": "In 45 minutes",
+                "fr": "Dans 45 minutes"
+              }
+            },
+            {
+              "value": "60",
+              "label": {
+                "en": "In 1 hour",
+                "fr": "Dans 1 heure"
+              }
+            },
+            {
+              "value": "90",
+              "label": {
+                "en": "In 1 h 30",
+                "fr": "Dans 1 h 30"
+              }
+            },
+            {
+              "value": "end_of_track",
+              "label": {
+                "en": "At the end of the current track",
+                "fr": "À la fin de la piste en cours"
+              }
+            },
+            {
+              "value": "cancel",
+              "label": {
+                "en": "Cancel the timer",
+                "fr": "Annuler le minuteur"
+              }
+            }
+          ]
+        }
+      ],
+      "outputs": [
+        {
+          "key": "player_name",
+          "type": "string",
+          "label": {
+            "en": "Player name",
+            "fr": "Nom du lecteur"
+          }
+        }
+      ]
+    },
+    {
       "key": "random_album",
       "label": {
         "en": "JewelBox: random album",

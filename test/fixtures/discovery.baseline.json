@@ -651,6 +651,19 @@
         ]
       },
       {
+        "key": "sleep_timer",
+        "fields": ["player", "duration"],
+        "options": {
+          "duration": ["15", "30", "45", "60", "90", "end_of_track", "cancel"]
+        },
+        "outputs": [
+          {
+            "key": "player_name",
+            "type": "string"
+          }
+        ]
+      },
+      {
         "key": "random_album",
         "fields": ["genre"],
         "options": {},

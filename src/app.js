@@ -77,6 +77,7 @@ import {
   loanEvent,
   playerEvent,
   playerTransitions,
+  sleepTimerCommand,
 } from './scenes.js';
 import {
   BUTTONS,
@@ -1271,6 +1272,14 @@ export function createApp(gladys, deps = {}) {
       artist: cut(state?.track?.artist ?? ''),
       album: cut(state?.track?.album ?? ''),
     };
+  });
+
+  action(ACTIONS.SLEEP_TIMER, async (fields) => {
+    const body = sleepTimerCommand(fields.duration);
+    if (!body) throw new UserError('errorSleepDuration');
+    const id = playerOf(fields.player);
+    await command(id, body);
+    return { player_name: cut(nameOfPlayer(id)) };
   });
 
   action(ACTIONS.RANDOM_ALBUM, async (fields) =>

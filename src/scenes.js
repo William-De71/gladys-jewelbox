@@ -16,6 +16,8 @@
 //
 // Actions:
 //   get_now_playing    what a player plays
+//   sleep_timer        pause a player after a delay or at the end of the
+//                      track (JewelBox 1.20+, a command of the remote control)
 //   random_album       an album drawn from the collection (optional genre)
 //   album_of_the_day   the first suggestion of the day of JewelBox
 //   lend_album         lend an album (by id or exact title)
@@ -37,6 +39,7 @@ export const TRIGGERS = {
 
 export const ACTIONS = {
   GET_NOW_PLAYING: 'get_now_playing',
+  SLEEP_TIMER: 'sleep_timer',
   RANDOM_ALBUM: 'random_album',
   ALBUM_OF_THE_DAY: 'album_of_the_day',
   LEND_ALBUM: 'lend_album',
@@ -104,6 +107,21 @@ export const playerEvent = (device, name, track) => ({
   artist: cut(track?.artist ?? ''),
   album: cut(track?.album ?? ''),
 });
+
+/**
+ * @description The `sleep_timer` command of the duration chosen in the scene:
+ * minutes (0 cancels) or the end of the current track.
+ * @param {unknown} duration - The `duration` field ("30", "end_of_track", "cancel").
+ * @returns {object|null} The command body, null for an unknown duration.
+ */
+export function sleepTimerCommand(duration) {
+  const value = String(duration ?? '').trim();
+  if (value === 'end_of_track') return { command: 'sleep_timer', end_of_track: true };
+  if (value === 'cancel') return { command: 'sleep_timer', minutes: 0 };
+  if (!/^\d{1,3}$/.test(value)) return null;
+  const minutes = Number(value);
+  return minutes > 0 && minutes <= 720 ? { command: 'sleep_timer', minutes } : null;
+}
 
 /**
  * @description The player events between two states.

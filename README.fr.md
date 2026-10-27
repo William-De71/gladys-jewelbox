@@ -103,13 +103,14 @@ _Illustration générée, pas une capture d’écran : albums inventés et poche
 | `loan_overdue`                                            | un prêt dépasse le délai de rappel, une fois par prêt                         | title, artist, borrower, days                          |
 | `playback_started` / `playback_stopped` / `track_changed` | un lecteur démarre, s’arrête, change de titre                                 | player, title, artist, album                           |
 
-| Action                        | Fait                                                     | Sorties                                                   |
-| ----------------------------- | -------------------------------------------------------- | --------------------------------------------------------- |
-| `get_now_playing`             | lit un lecteur                                           | player_name, playing, title, artist, album                |
-| `random_album`                | tire un album (genre facultatif)                         | title, artist, year, genre, label, summary                |
-| `album_of_the_day`            | la première suggestion du jour de JewelBox               | idem                                                      |
-| `lend_album` / `return_album` | prête un album (numéro ou titre exact) / le marque rendu | title, artist, borrower (, days)                          |
-| `scan_library`                | scanne le dossier de musique, attend la fin              | finished, matched_albums, matched_tracks, unmatched_files |
+| Action                        | Fait                                                                                             | Sorties                                                   |
+| ----------------------------- | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------- |
+| `get_now_playing`             | lit un lecteur                                                                                   | player_name, playing, title, artist, album                |
+| `sleep_timer`                 | met un lecteur en pause après 15 à 90 min (fondu) ou en fin de piste, ou annule (JewelBox 1.20+) | player_name                                               |
+| `random_album`                | tire un album (genre facultatif)                                                                 | title, artist, year, genre, label, summary                |
+| `album_of_the_day`            | la première suggestion du jour de JewelBox                                                       | idem                                                      |
+| `lend_album` / `return_album` | prête un album (numéro ou titre exact) / le marque rendu                                         | title, artist, borrower (, days)                          |
+| `scan_library`                | scanne le dossier de musique, attend la fin                                                      | finished, matched_albums, matched_tracks, unmatched_files |
 
 Exemples :
 
