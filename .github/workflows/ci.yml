@@ -119,7 +119,7 @@ jobs:
               const widget = buildCollectionWidget({ stats: { total_owned: 3, total_wanted: 1, total_lent: 0, total_artists: 2, by_decade: [{ decade: 1990, count: 3 }] }, collection: 'CD', language: 'fr' });
               let kind = null;
               try { await createClient().serverInfo('http://192.0.2.1:3001'); } catch (error) { kind = error.kind; }
-              if (typeof createApp !== 'function' || collection.features.length !== 7 || player.features.length !== 10 || validateWidgetContent(widget).length > 0 || kind !== 'network') {
+              if (typeof createApp !== 'function' || collection.features.length !== 9 || player.features.length !== 10 || validateWidgetContent(widget).length > 0 || kind !== 'network') {
                 process.exit(1);
               }
               console.log('modules load, devices build, a widget is valid, no network is a clean error');
