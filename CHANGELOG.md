@@ -5,6 +5,12 @@ follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions
 follow [Semantic Versioning](https://semver.org/). This file is generated at
 each release from the Conventional Commits: do not edit it by hand.
 
+## [0.7.0] - 2026-10-27
+
+### Added
+
+- wake up to music scene action (volume rising slowly) ([c5bb3c9](https://github.com/William-De71/gladys-jewelbox/commit/c5bb3c9c9bc0e82e86a06b18ecb626b8200b04b9))
+
 ## [0.6.0] - 2026-10-27
 
 ### Added
@@ -46,6 +52,7 @@ each release from the Conventional Commits: do not edit it by hand.
 - **widgets:** the player with its cover, the collection (counters, albums by decade, top genres), the lent albums, the album of the day with an "Another album" button, the recently added covers
 - **i18n:** English and French, the languages of JewelBox
 
+[0.7.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/William-De71/gladys-jewelbox/compare/v0.3.0...v0.4.0
