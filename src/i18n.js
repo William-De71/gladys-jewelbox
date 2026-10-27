@@ -63,6 +63,12 @@ const TEXTS = {
     en: '{player} is not connected to JewelBox or does not allow remote control (setting of the player).',
     fr: '{player} n’est pas connecté à JewelBox ou n’autorise pas le contrôle à distance (réglage du lecteur).',
   },
+  errorPlaylistNotFound: {
+    en: 'No JewelBox playlist named “{playlist}”.',
+    fr: 'Aucune playlist JewelBox nommée « {playlist} ».',
+  },
+  wakeDynamicMix: { en: 'Dynamic mix', fr: 'Mix dynamique' },
+  wakeFavourites: { en: 'Favourites', fr: 'Favoris' },
   errorSleepDuration: {
     en: 'Unknown sleep timer duration: choose a delay, the end of the track or cancel.',
     fr: 'Durée de minuteur inconnue : choisissez un délai, la fin de la piste ou l’annulation.',

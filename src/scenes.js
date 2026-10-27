@@ -18,6 +18,8 @@
 //   get_now_playing    what a player plays
 //   sleep_timer        pause a player after a delay or at the end of the
 //                      track (JewelBox 1.20+, a command of the remote control)
+//   wake_up            play music on a player, its volume rising slowly
+//                      (src/wakeup.js; remote control, JewelBox 1.18+)
 //   random_album       an album drawn from the collection (optional genre)
 //   album_of_the_day   the first suggestion of the day of JewelBox
 //   lend_album         lend an album (by id or exact title)
@@ -40,6 +42,7 @@ export const TRIGGERS = {
 export const ACTIONS = {
   GET_NOW_PLAYING: 'get_now_playing',
   SLEEP_TIMER: 'sleep_timer',
+  WAKE_UP: 'wake_up',
   RANDOM_ALBUM: 'random_album',
   ALBUM_OF_THE_DAY: 'album_of_the_day',
   LEND_ALBUM: 'lend_album',

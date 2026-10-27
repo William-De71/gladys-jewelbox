@@ -90,3 +90,40 @@ test('sleepTimerCommand: delays, end of track, cancel; nothing else', async () =
     assert.equal(sleepTimerCommand(value), null, String(value));
   }
 });
+
+test('wakeUpPlan: a bounded ramp, one volume step at a time, 30 commands at most', async () => {
+  const { wakeUpPlan, MAX_STEPS } = await import('../src/wakeup.js');
+  const plan = wakeUpPlan({ start_volume: 5, end_volume: 15, duration: 10 });
+  assert.equal(plan.start, 5);
+  assert.deepEqual(
+    plan.steps.map((s) => s.volume),
+    [6, 7, 8, 9, 10, 11, 12, 13, 14, 15],
+  );
+  assert.ok(plan.steps.every((s) => s.afterMs === 60000));
+  const long = wakeUpPlan({ start_volume: 0, end_volume: 100, duration: 30 });
+  assert.equal(long.steps.length, MAX_STEPS);
+  assert.equal(long.steps.at(-1).volume, 100);
+  assert.equal(long.steps[0].afterMs, 60000);
+  assert.deepEqual(wakeUpPlan({}).start, 5);
+  assert.equal(wakeUpPlan({}).steps.at(-1).volume, 40);
+  assert.deepEqual(wakeUpPlan({ start_volume: 30, end_volume: 30 }).steps, []);
+  assert.deepEqual(wakeUpPlan({ start_volume: 5, end_volume: 50, duration: 0 }), {
+    start: 50,
+    end: 50,
+    steps: [],
+  });
+  assert.equal(wakeUpPlan({ start_volume: -20, end_volume: 300 }).start, 0);
+  assert.deepEqual(
+    wakeUpPlan({ start_volume: 50, end_volume: 47, duration: 3 }).steps.map((s) => s.volume),
+    [49, 48, 47],
+  );
+});
+
+test('rampGoesOn: gives way to the user and to a stop', async () => {
+  const { rampGoesOn } = await import('../src/wakeup.js');
+  assert.equal(rampGoesOn(null, 10), true);
+  assert.equal(rampGoesOn({ live: true, playing: true, volume: 11 }, 10), true);
+  assert.equal(rampGoesOn({ live: true, playing: true, volume: 3 }, 10), false);
+  assert.equal(rampGoesOn({ live: true, playing: false, volume: 10 }, 10), false);
+  assert.equal(rampGoesOn({ live: false, playing: false }, 10), true);
+});

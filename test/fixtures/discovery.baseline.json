@@ -685,6 +685,30 @@
         ]
       },
       {
+        "key": "wake_up",
+        "fields": ["player", "music", "name", "start_volume", "end_volume", "duration"],
+        "options": {
+          "music": [
+            "dynamic_mix",
+            "favourites",
+            "random_album",
+            "album_of_the_day",
+            "album",
+            "playlist"
+          ]
+        },
+        "outputs": [
+          {
+            "key": "player_name",
+            "type": "string"
+          },
+          {
+            "key": "title",
+            "type": "string"
+          }
+        ]
+      },
+      {
         "key": "random_album",
         "fields": ["genre"],
         "options": {},

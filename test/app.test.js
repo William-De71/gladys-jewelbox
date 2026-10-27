@@ -1091,3 +1091,53 @@ test('listening: a collection created before the counters gets no state for them
   assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:plays_month`), undefined);
   assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:owned`), 2);
 });
+
+test('wake_up: volume first, the music, then a slow rise that gives way to the user', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  const ctx = await remoteSetup(t);
+  await ctx.app.playerRound();
+  await create(ctx, PLAYER);
+  ctx.server.state.playlists = [{ id: 3, name: 'Réveil doux', track_count: 2, tracks: [] }];
+  const ack = await ctx.gladys.fake.sceneAction('wake_up', {
+    player: PLAYER,
+    music: 'playlist',
+    name: 'réveil DOUX',
+    start_volume: 10,
+    end_volume: 13,
+    duration: 3,
+  });
+  assert.equal(ack.success, true, JSON.stringify(ack));
+  assert.deepEqual(ack.data.outputs, {
+    player_name: 'JewelBox bureau · wsmd-fed-2',
+    title: 'Réveil doux',
+  });
+  const sent = () => ctx.server.state.commands.map(([, body]) => body);
+  assert.deepEqual(sent(), [
+    { command: 'volume', volume: 10 },
+    { command: 'play_media', media: { type: 'playlist', id: 3 }, mode: 'replace' },
+  ]);
+
+  // The player confirms each volume through its live state.
+  const live = ctx.server.state.remote.get(PLAYER_ID).state;
+  let reports = 0;
+  const tick = async (volume) => {
+    live.volume = volume;
+    live.reported_at = new Date(START + ++reports * 1000).toISOString();
+    // A round already running read the state before: one more after it.
+    await ctx.app.playerRound();
+    await ctx.app.playerRound();
+    t.mock.timers.tick(60000);
+    for (let i = 0; i < 30; i++) await new Promise((resolve) => setImmediate(resolve));
+  };
+  await tick(10);
+  assert.deepEqual(sent().at(-1), { command: 'volume', volume: 11 });
+  await tick(11);
+  assert.deepEqual(sent().at(-1), { command: 'volume', volume: 12 });
+  // Turned down by hand: the rise stops there.
+  const before = sent().length;
+  await tick(4);
+  assert.equal(sent().length, before);
+
+  const missing = await ctx.gladys.fake.sceneAction('wake_up', { music: 'playlist', name: 'Nope' });
+  assert.match(JSON.stringify(missing), /No JewelBox playlist named/);
+});

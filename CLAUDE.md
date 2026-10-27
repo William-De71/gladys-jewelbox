@@ -59,6 +59,7 @@ src/collection.js     what changed between two readings: added, left the wish
 src/devices.js        the collection and player devices, feature values, the
                       now playing snapshot of publishNowPlaying (nowPlayingOf)
 src/scenes.js         trigger / action keys, event data, player transitions
+src/wakeup.js         the volume ramp of the wake_up action (pure)
 src/widgets.js        the five widgets (pure, reused by docs/illustrations), cover keys
 src/states.js         state publication: created devices only, coalesced, 240/min, 429 pause
 src/storage.js        /data: server.json, reminders.json, players.json (capabilities)

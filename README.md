@@ -18,7 +18,7 @@ Your [JewelBox Music Library](https://github.com/William-De71/Jewelbox-Music-Lib
 - **Collection device**: albums, wish list, albums lent out, artists, average rating, hours of music, days of the oldest loan, and with JewelBox 1.20+ the plays of today and of the month (history and charts of Gladys).
 - **One device per JewelBox player** (web app, desktop player, Android app): playing or not, and the now playing of the music players of Gladys 5.3.0 (title, artist, album, cover, duration, position). With JewelBox 1.18+, **controlled from Gladys**: play / pause, next / previous, seek, volume, mute, shuffle, repeat, and the JewelBox catalog in the music box (browse, search, queue, play).
 - **Scene triggers**: album added (collection or wish list, or a wish come true), album lent, album returned, loan overdue, playback started / stopped, new track.
-- **Scene actions**: what is playing, a sleep timer, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
+- **Scene actions**: what is playing, a sleep timer, wake up to music, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
 - **Five dashboard widgets**: player with its cover, collection (or, with its **Show** setting, my listening: plays and most played albums of the month, the year or all time, JewelBox 1.20+), lent albums, album of the day, recently added.
 - **Found by itself** on the network (mDNS `_jewelbox._tcp`), an address to type as a fallback.
 
@@ -104,14 +104,15 @@ _Generated illustration, not a screenshot: invented albums and plain covers, dra
 | `loan_overdue`                                            | a loan passes the reminder delay, once per loan                    | title, artist, borrower, days                          |
 | `playback_started` / `playback_stopped` / `track_changed` | a player starts, stops, changes track                              | player, title, artist, album                           |
 
-| Action                        | Does                                                                                           | Outputs                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| `get_now_playing`             | reads a player                                                                                 | player_name, playing, title, artist, album                |
-| `sleep_timer`                 | pauses a player after 15–90 min (fade) or at the end of the track, or cancels (JewelBox 1.20+) | player_name                                               |
-| `random_album`                | draws an album (optional genre)                                                                | title, artist, year, genre, label, summary                |
-| `album_of_the_day`            | the first suggestion of the day of JewelBox                                                    | same                                                      |
-| `lend_album` / `return_album` | lends an album (id or exact title) / marks it returned                                         | title, artist, borrower (, days)                          |
-| `scan_library`                | scans the music folder, waits for the end                                                      | finished, matched_albums, matched_tracks, unmatched_files |
+| Action                        | Does                                                                                                                                    | Outputs                                                   |
+| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `get_now_playing`             | reads a player                                                                                                                          | player_name, playing, title, artist, album                |
+| `sleep_timer`                 | pauses a player after 15–90 min (fade) or at the end of the track, or cancels (JewelBox 1.20+)                                          | player_name                                               |
+| `wake_up`                     | plays music on a player (mix, favourites, an album, a playlist…), volume rising slowly; the rise stops if the volume is changed by hand | player_name, title                                        |
+| `random_album`                | draws an album (optional genre)                                                                                                         | title, artist, year, genre, label, summary                |
+| `album_of_the_day`            | the first suggestion of the day of JewelBox                                                                                             | same                                                      |
+| `lend_album` / `return_album` | lends an album (id or exact title) / marks it returned                                                                                  | title, artist, borrower (, days)                          |
+| `scan_library`                | scans the music folder, waits for the end                                                                                               | finished, matched_albums, matched_tracks, unmatched_files |
 
 Examples:
 

@@ -1106,6 +1106,155 @@
       ]
     },
     {
+      "key": "wake_up",
+      "label": {
+        "en": "JewelBox: wake up to music",
+        "fr": "JewelBox : réveil en musique"
+      },
+      "timeout_seconds": 30,
+      "description": {
+        "en": "Play music on a player, its volume rising slowly from the start to the end volume. Stops rising when the volume is changed by hand. Needs remote control (JewelBox 1.18+).",
+        "fr": "Lance la musique sur un lecteur, son volume montant doucement du volume de départ au volume final. La montée s’arrête si le volume est changé à la main. Contrôle à distance requis (JewelBox 1.18+)."
+      },
+      "fields": [
+        {
+          "key": "player",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Player",
+            "fr": "Lecteur"
+          },
+          "description": {
+            "en": "Leave empty for the one playing (or the last one used).",
+            "fr": "Laissez vide pour celui qui joue (ou le dernier utilisé)."
+          }
+        },
+        {
+          "key": "music",
+          "type": "select",
+          "default": "dynamic_mix",
+          "required": true,
+          "label": {
+            "en": "Music",
+            "fr": "Musique"
+          },
+          "options": [
+            {
+              "value": "dynamic_mix",
+              "label": {
+                "en": "Dynamic mix",
+                "fr": "Mix dynamique"
+              }
+            },
+            {
+              "value": "favourites",
+              "label": {
+                "en": "Favourite tracks",
+                "fr": "Titres favoris"
+              }
+            },
+            {
+              "value": "random_album",
+              "label": {
+                "en": "A random album",
+                "fr": "Un album au hasard"
+              }
+            },
+            {
+              "value": "album_of_the_day",
+              "label": {
+                "en": "The album of the day",
+                "fr": "L’album du jour"
+              }
+            },
+            {
+              "value": "album",
+              "label": {
+                "en": "The album named below",
+                "fr": "L’album nommé ci-dessous"
+              }
+            },
+            {
+              "value": "playlist",
+              "label": {
+                "en": "The playlist named below",
+                "fr": "La playlist nommée ci-dessous"
+              }
+            }
+          ]
+        },
+        {
+          "key": "name",
+          "type": "string",
+          "required": false,
+          "label": {
+            "en": "Album or playlist",
+            "fr": "Album ou playlist"
+          },
+          "description": {
+            "en": "For the last two choices: the exact title of the album (or its number) or the name of the playlist.",
+            "fr": "Pour les deux derniers choix : le titre exact de l’album (ou son numéro) ou le nom de la playlist."
+          }
+        },
+        {
+          "key": "start_volume",
+          "type": "number",
+          "default": 5,
+          "min": 0,
+          "max": 100,
+          "required": false,
+          "label": {
+            "en": "Start volume (%)",
+            "fr": "Volume de départ (%)"
+          }
+        },
+        {
+          "key": "end_volume",
+          "type": "number",
+          "default": 40,
+          "min": 0,
+          "max": 100,
+          "required": false,
+          "label": {
+            "en": "End volume (%)",
+            "fr": "Volume final (%)"
+          }
+        },
+        {
+          "key": "duration",
+          "type": "number",
+          "default": 10,
+          "min": 0,
+          "max": 60,
+          "required": false,
+          "label": {
+            "en": "Rise (minutes)",
+            "fr": "Montée (minutes)"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "player_name",
+          "type": "string",
+          "label": {
+            "en": "Player name",
+            "fr": "Nom du lecteur"
+          }
+        },
+        {
+          "key": "title",
+          "type": "string",
+          "label": {
+            "en": "Music played",
+            "fr": "Musique lancée"
+          }
+        }
+      ]
+    },
+    {
       "key": "random_album",
       "label": {
         "en": "JewelBox: random album",

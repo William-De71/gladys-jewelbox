@@ -79,6 +79,7 @@ import {
   playerTransitions,
   sleepTimerCommand,
 } from './scenes.js';
+import { WAKE_UP_MUSIC, rampGoesOn, wakeUpPlan } from './wakeup.js';
 import {
   BUTTONS,
   LIST_SETTING,
@@ -1309,6 +1310,98 @@ export function createApp(gladys, deps = {}) {
     return { player_name: cut(nameOfPlayer(id)) };
   });
 
+  // --- Wake up to music ---
+
+  const ramps = new Map(); // device id -> timer of its volume ramp
+
+  const stopRamp = (id) => {
+    clearTimeout(ramps.get(id));
+    ramps.delete(id);
+  };
+
+  /**
+   * @description Raise the volume of a player step by step (wakeUpPlan),
+   * until the end or until the user takes over.
+   * @param {string} id - JewelBox device id.
+   * @param {Array<{ afterMs: number, volume: number }>} steps - The steps.
+   * @param {number} lastSent - The volume sent last.
+   */
+  const ramp = (id, steps, lastSent) => {
+    stopRamp(id);
+    const [step, ...rest] = steps;
+    if (!step || stopped) return;
+    const timer = setTimeout(async () => {
+      if (ramps.get(id) !== timer) return;
+      ramps.delete(id);
+      if (!rampGoesOn(playback.get(id), lastSent)) return;
+      try {
+        await command(id, { command: 'volume', volume: step.volume });
+      } catch (error) {
+        logger.warn(`JewelBox: wake up volume failed: ${error?.message ?? error}`);
+        return;
+      }
+      ramp(id, rest, step.volume);
+    }, step.afterMs);
+    timer.unref?.();
+    ramps.set(id, timer);
+  };
+
+  const playlistByName = async (name) => {
+    const text = String(name ?? '').trim();
+    const lists = await call((url) => client.playlists(url));
+    const found = lists.find((list) => sameText(list.name, text));
+    if (!found) throw new UserError('errorPlaylistNotFound', { playlist: text.slice(0, 200) });
+    return found;
+  };
+
+  /**
+   * @description What a wake up plays.
+   * @param {string} music - WAKE_UP_MUSIC value.
+   * @param {string} name - Album title or playlist name, for those two.
+   * @returns {Promise<{ media: object, title: string }>} The play_media target and its text.
+   */
+  const wakeUpMedia = async (music, name) => {
+    const album = (found) => {
+      if (!found) throw new UserError('errorNoAlbum');
+      return { media: { type: 'album', id: found.id }, title: albumText(found) };
+    };
+    switch (music) {
+      case WAKE_UP_MUSIC.FAVOURITES:
+        return {
+          media: { type: 'smart', id: 'favourites' },
+          title: t('wakeFavourites', config.language),
+        };
+      case WAKE_UP_MUSIC.RANDOM_ALBUM:
+        return album(await randomAlbum());
+      case WAKE_UP_MUSIC.ALBUM_OF_THE_DAY:
+        return album(await albumOfTheDay());
+      case WAKE_UP_MUSIC.ALBUM:
+        return album(await resolveAlbum(name));
+      case WAKE_UP_MUSIC.PLAYLIST: {
+        const list = await playlistByName(name);
+        return { media: { type: 'playlist', id: list.id }, title: String(list.name) };
+      }
+      default:
+        return {
+          media: { type: 'smart', id: 'dynamic_mix' },
+          title: t('wakeDynamicMix', config.language),
+        };
+    }
+  };
+
+  action(ACTIONS.WAKE_UP, async (fields) => {
+    const id = playerOf(fields.player);
+    const plan = wakeUpPlan(fields);
+    const { media, title } = await wakeUpMedia(fields.music, fields.name);
+    stopRamp(id);
+    // Without the volume control (never announced): the music plays as is.
+    const withVolume = (capabilities.get(id) ?? []).includes('volume');
+    if (withVolume) await command(id, { command: 'volume', volume: plan.start });
+    await command(id, { command: 'play_media', media, mode: 'replace' });
+    if (withVolume) ramp(id, plan.steps, plan.start);
+    return { player_name: cut(nameOfPlayer(id)), title: cut(title) };
+  });
+
   action(ACTIONS.RANDOM_ALBUM, async (fields) =>
     albumOutputs(await randomAlbum(typeof fields.genre === 'string' ? fields.genre.trim() : '')),
   );
@@ -1529,6 +1622,7 @@ export function createApp(gladys, deps = {}) {
   const stop = async () => {
     stopped = true;
     stopWatch();
+    for (const id of [...ramps.keys()]) stopRamp(id);
     clearTimeout(watchRound);
     for (const key of Object.keys(timers)) {
       clearTimeout(timers[key]);
