@@ -195,6 +195,21 @@ export function createClient({ fetch = globalThis.fetch, now = Date.now } = {}) 
     stats: (base) => get(base, '/api/stats'),
 
     /**
+     * @description The listening statistics (JewelBox 1.20+).
+     * @param {string} base - Base URL.
+     * @param {string} period - 'month', 'year' or 'all'.
+     * @returns {Promise<object|null>} The statistics, null for an older server.
+     */
+    async listeningStats(base, period) {
+      try {
+        return await get(base, `/api/player/stats?period=${encodeURIComponent(period)}`);
+      } catch (error) {
+        if (error instanceof JewelBoxError && error.status === 404) return null;
+        throw error;
+      }
+    },
+
+    /**
      * @param {string} base - Base URL.
      * @returns {Promise<{ id: number, name: string }|null>} The active collection.
      */

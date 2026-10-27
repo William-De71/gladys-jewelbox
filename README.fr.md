@@ -15,11 +15,11 @@ Votre collection de CD [JewelBox Music Library](https://github.com/William-De71/
 
 ## Fonctionnalités
 
-- **Appareil Collection** : albums, liste de souhaits, albums prêtés, artistes, note moyenne, heures de musique, jours du plus ancien prêt (historique et graphiques de Gladys).
+- **Appareil Collection** : albums, liste de souhaits, albums prêtés, artistes, note moyenne, heures de musique, jours du plus ancien prêt, et avec JewelBox 1.20+ les écoutes du jour et du mois (historique et graphiques de Gladys).
 - **Un appareil par lecteur JewelBox** (appli web, lecteur de bureau, appli Android) : en lecture ou non, et le « en cours de lecture » des lecteurs de musique de Gladys 5.3.0 (titre, artiste, album, pochette, durée, position). Avec JewelBox 1.18+, **piloté depuis Gladys** : lecture / pause, suivant / précédent, déplacement, volume, muet, aléatoire, répétition, et le catalogue JewelBox dans la boîte musique (parcourir, chercher, file d’attente, lancer).
 - **Déclencheurs de scène** : album ajouté (collection ou liste de souhaits, ou souhait exaucé), album prêté, album rendu, prêt en retard, lecture démarrée / arrêtée, nouveau titre.
-- **Actions de scène** : titre en cours, album au hasard (par genre), album du jour, prêter un album, le marquer rendu, scanner la bibliothèque musicale.
-- **Cinq widgets** : lecteur avec sa pochette, collection, albums prêtés, album du jour, derniers ajouts.
+- **Actions de scène** : titre en cours, minuteur de sommeil, album au hasard (par genre), album du jour, prêter un album, le marquer rendu, scanner la bibliothèque musicale.
+- **Cinq widgets** : lecteur avec sa pochette, collection (ou, avec son réglage **Afficher**, mes écoutes : écoutes et albums les plus écoutés du mois, de l’année ou depuis toujours, JewelBox 1.20+), albums prêtés, album du jour, derniers ajouts.
 - **Trouvé tout seul** sur le réseau (mDNS `_jewelbox._tcp`), avec une adresse à saisir en repli.
 
 ## Fonctionnement
@@ -78,6 +78,7 @@ Un lecteur publie aussi les fonctionnalités `music` de Gladys 5.3.0 : titre, ar
 | Collection JewelBox | Note moyenne                                | `counter-sensor` / `decimal`               | de 1 à 5                         |
 | Collection JewelBox | Durée d’écoute                              | `duration` / `decimal`, heures             | toute la collection              |
 | Collection JewelBox | Plus ancien prêt                            | `duration` / `integer`, jours              | 0 sans prêt                      |
+| Collection JewelBox | Écoutes du jour, Écoutes du mois            | `counter-sensor` / `integer`               | JewelBox 1.20+                   |
 | Lecteur JewelBox    | Lecture                                     | `music` / `playback_state`                 | écrivable avec le contrôle       |
 | Lecteur JewelBox    | Titre, Artiste, Album                       | `text` / `text`                            | le titre en cours                |
 | Lecteur JewelBox    | En cours : titre, artiste, album            | `music` / `title`, `artist`, `album`       | vides sans file                  |

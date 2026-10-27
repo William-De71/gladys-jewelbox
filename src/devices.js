@@ -11,6 +11,8 @@
 //     rating       average rating, 1 to 5 (decimal)
 //     play_time    total playing time of the collection (hours)
 //     oldest_loan  days since the oldest loan still running (0 without loan)
+//     plays_today  tracks listened to today (counter, JewelBox 1.20+)
+//     plays_month  tracks listened to this calendar month (counter, 1.20+)
 //
 //   player       one per JewelBox player that left a queue on the server
 //                (web app, desktop player, Android app):
@@ -61,6 +63,8 @@ export const COLLECTION_FEATURES = {
   RATING: 'rating',
   PLAY_TIME: 'play_time',
   OLDEST_LOAN: 'oldest_loan',
+  PLAYS_TODAY: 'plays_today',
+  PLAYS_MONTH: 'plays_month',
 };
 export const PLAYER_FEATURES = {
   PLAYING: 'playing',
@@ -152,6 +156,8 @@ const COLLECTION_SPECS = [
       max: 36500,
     },
   ],
+  [COLLECTION_FEATURES.PLAYS_TODAY, counter],
+  [COLLECTION_FEATURES.PLAYS_MONTH, counter],
 ];
 
 // The controls of a player that accepts remote control. The player is the
@@ -344,9 +350,10 @@ const round = (value, digits) => Math.round(value * 10 ** digits) / 10 ** digits
  * @description The values of the collection features.
  * @param {object} stats - `GET /api/stats`.
  * @param {number|null} oldestLoanDays - Days of the oldest loan (null: unknown).
+ * @param {object|null} [listening] - `GET /api/player/stats` (JewelBox 1.20+).
  * @returns {Array<[string, number]>} `[featureKey, value]`; an unknown value is omitted.
  */
-export function collectionValues(stats, oldestLoanDays) {
+export function collectionValues(stats, oldestLoanDays, listening = null) {
   const values = [];
   const count = (key, value) => {
     if (Number.isFinite(value) && value >= 0) values.push([key, Math.round(value)]);
@@ -368,6 +375,8 @@ export function collectionValues(stats, oldestLoanDays) {
   }
   if (Number.isFinite(oldestLoanDays))
     values.push([COLLECTION_FEATURES.OLDEST_LOAN, Math.max(0, oldestLoanDays)]);
+  count(COLLECTION_FEATURES.PLAYS_TODAY, listening?.counters?.plays_today);
+  count(COLLECTION_FEATURES.PLAYS_MONTH, listening?.counters?.plays_month);
   return values;
 }
 

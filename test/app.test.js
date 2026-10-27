@@ -1006,3 +1006,88 @@ test('music players: browse the catalog, search, play, queue', async (t) => {
   assert.equal(jump.success, true);
   assert.deepEqual(ctx.server.state.commands.at(-1)[1], { command: 'play_index', index: 2 });
 });
+
+const LISTENING = (plays) => ({
+  period: 'month',
+  counters: { plays_today: 3, plays_month: plays, plays_year: 200, plays_all: 1234 },
+  summary: { plays, listening_minutes: 125, tracks: 20, albums: 2 },
+  by_month: [
+    { month: '2026-09', plays: 12 },
+    { month: '2026-10', plays },
+  ],
+  top: {
+    albums: [
+      {
+        album_id: 1,
+        title: 'Blackwater Park',
+        artist_name: 'Opeth',
+        cover_url: `/covers/${COVER}.jpeg`,
+        plays: 9,
+      },
+      { album_id: 2, title: 'Damnation', artist_name: 'Opeth', cover_url: null, plays: 1 },
+    ],
+  },
+});
+
+test('listening: counters of the collection, a view of its widget', async (t) => {
+  const ctx = await setup(t);
+  ctx.server.state.listening = {
+    month: LISTENING(31),
+    all: { ...LISTENING(1234), period: 'all' },
+  };
+  await create(ctx, COLLECTION);
+  await ctx.app.collectionRound();
+  await flush(ctx);
+  assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:plays_today`), 3);
+  assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:plays_month`), 31);
+
+  const view = async (settings, language = 'fr') =>
+    (await ctx.gladys.fake.widgetGet(WIDGETS.COLLECTION, { language, settings })).data.content;
+  const month = await view({ view: 'listening' });
+  assert.deepEqual(validateWidgetContent(month), []);
+  const text = JSON.stringify(month);
+  assert.match(text, /Blackwater Park/);
+  assert.match(text, /9 écoutes/);
+  assert.match(text, /1 écoute"/);
+  assert.match(text, new RegExp(`jb-${COVER}-jpeg`));
+  assert.equal(month.components[1].value, 31);
+  assert.equal(month.components[2].value, 2.1);
+
+  const all = await view({ view: 'listening', period: 'all' }, 'en');
+  assert.deepEqual(validateWidgetContent(all), []);
+  assert.equal(all.components[1].value, 1234);
+  // Cached for a minute: one request for two displays.
+  await view({ view: 'listening', period: 'all' });
+  assert.equal(ctx.server.calls.filter((c) => c.includes('period=all')).length, 1);
+
+  // The default view stays the collection.
+  assert.match(JSON.stringify(await view({})), /Blackwater Park|will_cd_collections/);
+});
+
+test('listening: an older JewelBox (404) says so, without counters', async (t) => {
+  const ctx = await setup(t);
+  await create(ctx, COLLECTION);
+  await ctx.app.collectionRound();
+  await flush(ctx);
+  assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:plays_month`), undefined);
+  assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:owned`), 2);
+  const ack = await ctx.gladys.fake.widgetGet(WIDGETS.COLLECTION, {
+    language: 'en',
+    settings: { view: 'listening' },
+  });
+  assert.match(JSON.stringify(ack.data.content), /need JewelBox 1.20/);
+});
+
+test('listening: a collection created before the counters gets no state for them', async (t) => {
+  const ctx = await setup(t);
+  ctx.server.state.listening = { month: LISTENING(31) };
+  const device = structuredClone(
+    ctx.gladys.fake.discoveredDevices.find((d) => d.external_id === COLLECTION),
+  );
+  device.features = device.features.filter((f) => !/:plays_(today|month)$/.test(f.external_id));
+  await ctx.gladys.fake.deviceCreated(device);
+  await ctx.app.collectionRound();
+  await flush(ctx);
+  assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:plays_month`), undefined);
+  assert.equal(ctx.gladys.fake.lastState(`${COLLECTION}:owned`), 2);
+});

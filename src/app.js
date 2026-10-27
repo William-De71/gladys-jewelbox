@@ -82,11 +82,14 @@ import {
 import {
   BUTTONS,
   LIST_SETTING,
+  PERIOD_SETTING,
+  VIEW_SETTING,
   WIDGETS,
   buildAlbumOfTheDayWidget,
   buildCollectionWidget,
   buildLoansWidget,
   buildNowPlayingWidget,
+  buildListeningWidget,
   buildRecentlyAddedWidget,
   coverFile,
   coverKey,
@@ -118,6 +121,8 @@ const WATCH_RETRY_MIN_MS = 5 * 1000;
 const WATCH_RETRY_MAX_MS = 60 * 1000;
 const MAX_ITEMS = 100;
 const REMOTE_RECHECK_MS = 10 * 60 * 1000;
+// The listening statistics of another period than the month (widget setting).
+const LISTENING_TTL_MS = 60 * 1000;
 
 class UserError extends Error {
   constructor(key, values = {}) {
@@ -165,6 +170,9 @@ export function createApp(gladys, deps = {}) {
   let database = null; // { id, name }
   let recent = null;
   let lent = null;
+  // GET /api/player/stats of the month: null for JewelBox < 1.20.
+  let listening = null;
+  const listeningOther = new Map(); // period -> { data, at }
   let base = null;
   const reminded = new Set();
 
@@ -453,8 +461,14 @@ export function createApp(gladys, deps = {}) {
     if (!server?.serverId) return;
     const ids = collectionIds(gladys, server.serverId);
     const oldest = lent ? oldestLoanDays(lent, now()) : null;
-    for (const [key, value] of collectionValues(stats, oldest))
-      states.push(ids.feature(key), value);
+    // A collection created before a feature was added keeps its features
+    // until the user updates it: publish only the ones it has.
+    const known = created.get(ids.device)?.features;
+    for (const [key, value] of collectionValues(stats, oldest, listening)) {
+      const featureId = ids.feature(key);
+      if (known?.size && !known.has(featureId)) continue;
+      states.push(featureId, value);
+    }
   };
 
   const pushPlayer = async (id) => {
@@ -686,13 +700,18 @@ export function createApp(gladys, deps = {}) {
 
   const readCollection = async () => {
     const db = await call((url) => client.activeDatabase(url));
-    const [statistics, latest, wished, lentOut] = await Promise.all([
+    const [statistics, latest, wished, lentOut, plays] = await Promise.all([
       call((url) => client.stats(url)),
       call((url) => client.albums(url, { sort: 'created_at', order: 'desc', limit: RECENT_LIMIT })),
       call((url) =>
         client.albums(url, { wanted: true, sort: 'created_at', order: 'desc', limit: LIST_LIMIT }),
       ),
       call((url) => client.albums(url, { lent: true, limit: LIST_LIMIT })),
+      // Best effort: the statistics must not hold up the collection.
+      safely(
+        () => call((url) => client.listeningStats(url, PERIOD_SETTING.MONTH)),
+        'reading the listening statistics',
+      ),
     ]);
     const reading = {
       dbId: db?.id ?? 0,
@@ -764,8 +783,16 @@ export function createApp(gladys, deps = {}) {
     stats = statistics;
     recent = latest.data;
     lent = lentOut.data;
+    // A failed reading keeps the last one (null stays "server too old").
+    if (plays !== undefined) listening = plays;
+    listeningOther.clear();
     pushCollection();
-    refreshIfChanged(WIDGETS.COLLECTION, [db?.name, stats]);
+    refreshIfChanged(WIDGETS.COLLECTION, [
+      db?.name,
+      stats,
+      listening?.counters,
+      listening?.top?.albums,
+    ]);
     refreshIfChanged(
       WIDGETS.LOANS,
       lent.map((album) => [album.id, album.lent_to, album.lent_at]),
@@ -1369,12 +1396,14 @@ export function createApp(gladys, deps = {}) {
     });
   });
 
-  gladys.onWidgetGet(WIDGETS.COLLECTION, async ({ language } = {}) =>
-    buildCollectionWidget({
-      stats: reachable ? stats : null,
-      collection: database?.name || server?.collection || '',
-      language: languageOf(language),
-    }),
+  gladys.onWidgetGet(WIDGETS.COLLECTION, async ({ settings = {}, language } = {}) =>
+    settings.view === VIEW_SETTING.LISTENING
+      ? listeningWidget(settings, language)
+      : buildCollectionWidget({
+          stats: reachable ? stats : null,
+          collection: database?.name || server?.collection || '',
+          language: languageOf(language),
+        }),
   );
 
   gladys.onWidgetGet(WIDGETS.LOANS, async ({ language } = {}) =>
@@ -1416,6 +1445,27 @@ export function createApp(gladys, deps = {}) {
       return all((language) => explain(error, language).slice(0, 200));
     }
   });
+
+  const listeningWidget = async (settings, language) => {
+    const period = Object.values(PERIOD_SETTING).includes(settings.period)
+      ? settings.period
+      : PERIOD_SETTING.MONTH;
+    let data = reachable ? listening : undefined;
+    if (reachable && listening && period !== PERIOD_SETTING.MONTH) {
+      const cached = listeningOther.get(period);
+      if (cached && now() - cached.at < LISTENING_TTL_MS) {
+        data = cached.data;
+      } else {
+        data = await safely(
+          () => call((url) => client.listeningStats(url, period)),
+          'reading the listening statistics',
+        );
+        if (data) listeningOther.set(period, { data, at: now() });
+        else data = undefined;
+      }
+    }
+    return buildListeningWidget({ listening: data, period, language: languageOf(language) });
+  };
 
   gladys.onWidgetGet(WIDGETS.RECENTLY_ADDED, async ({ settings = {}, language } = {}) =>
     buildRecentlyAddedWidget({

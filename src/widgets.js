@@ -3,7 +3,10 @@
 // docs/illustrations/gen.mjs).
 //
 //   now_playing        a player: cover, track, artist, album, source, state
-//   collection         counters (tiles), albums by decade (chart), top genres
+//   collection         counters (tiles), albums by decade (chart), top genres;
+//                      or, with the "view" setting, my listening: plays today
+//                      and of the period, listening time, the most played
+//                      albums (JewelBox 1.20+). Gladys takes 5 widgets at most.
 //   loans              the albums lent out: borrower, since when, days
 //   album_of_the_day   the suggestion of the day of JewelBox, or an album
 //                      drawn by the "Another album" button
@@ -33,6 +36,9 @@ export const WIDGETS = {
 };
 export const BUTTONS = { ANOTHER: 'another', TODAY: 'today' };
 export const LIST_SETTING = { ALL: 'all', OWNED: 'owned', WANTED: 'wanted' };
+export const VIEW_SETTING = { COLLECTION: 'collection', LISTENING: 'listening' };
+export const PERIOD_SETTING = { MONTH: 'month', YEAR: 'year', ALL: 'all' };
+export const TOP_ALBUMS = 5;
 export const LOAN_ITEMS = 8;
 export const RECENT_ITEMS = 9;
 const TOP_GENRES = 4;
@@ -337,4 +343,72 @@ export function buildRecentlyAddedWidget({ albums, list, language }) {
     return item;
   });
   return { ttl_seconds: 300, components: [{ type: 'card-list', display: 'grid', items }] };
+}
+
+const PERIOD_TILE = {
+  [PERIOD_SETTING.MONTH]: 'widgetPlaysMonth',
+  [PERIOD_SETTING.YEAR]: 'widgetPlaysYear',
+  [PERIOD_SETTING.ALL]: 'widgetPlaysAll',
+};
+
+/**
+ * @description The "My listening" view of the "Collection" widget.
+ * @param {object} params - Parameters.
+ * @param {object|null|undefined} params.listening - `GET /api/player/stats`
+ * for the period; null for a server older than 1.20, undefined when the
+ * server does not answer.
+ * @param {string} params.period - PERIOD_SETTING value.
+ * @param {string} params.language - Language.
+ * @returns {object} The content.
+ */
+export function buildListeningWidget({ listening, period, language }) {
+  if (listening === undefined) return { ttl_seconds: 60, components: [body('widgetNoServer')] };
+  if (!listening) return { ttl_seconds: 600, components: [body('widgetListeningUnavailable')] };
+  const tile = (labelKey, value, icon, color, unit) => ({
+    type: 'value',
+    label: all(labelKey),
+    value: Number.isFinite(value) ? value : 0,
+    icon,
+    color,
+    ...(unit ? { unit } : {}),
+  });
+  const counters = listening.counters ?? {};
+  const minutes = Number(listening.summary?.listening_minutes) || 0;
+  const components = [
+    tile('widgetPlaysToday', counters.plays_today, 'headphones', WIDGET_COLORS.PRIMARY),
+    tile(
+      PERIOD_TILE[period] ?? 'widgetPlaysMonth',
+      period === PERIOD_SETTING.ALL ? counters.plays_all : listening.summary?.plays,
+      'calendar',
+      WIDGET_COLORS.INFO,
+    ),
+    tile('widgetListeningTime', Math.round(minutes / 6) / 10, 'clock', WIDGET_COLORS.NEUTRAL, 'h'),
+  ];
+  const albums = (Array.isArray(listening.top?.albums) ? listening.top.albums : []).slice(
+    0,
+    TOP_ALBUMS,
+  );
+  if (albums.length === 0) {
+    components.push(body('widgetNoPlays'));
+  } else {
+    const items = albums.map((album) => {
+      const plays = Number(album.plays) || 0;
+      const item = {
+        title: cut(album.title, 60),
+        subtitle: cut(album.artist_name ?? '', 60),
+        badge: {
+          text: cut(
+            plays === 1 ? t('widgetPlay', language) : t('widgetPlays', language, { n: plays }),
+            16,
+          ),
+          color: WIDGET_COLORS.NEUTRAL,
+        },
+      };
+      const key = coverKey(album.cover_url);
+      if (key) item.image = key;
+      return item;
+    });
+    components.push({ type: 'card-list', display: 'list', items });
+  }
+  return { ttl_seconds: 300, components };
 }

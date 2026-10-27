@@ -15,11 +15,11 @@ Your [JewelBox Music Library](https://github.com/William-De71/Jewelbox-Music-Lib
 
 ## Features
 
-- **Collection device**: albums, wish list, albums lent out, artists, average rating, hours of music, days of the oldest loan (history and charts of Gladys).
+- **Collection device**: albums, wish list, albums lent out, artists, average rating, hours of music, days of the oldest loan, and with JewelBox 1.20+ the plays of today and of the month (history and charts of Gladys).
 - **One device per JewelBox player** (web app, desktop player, Android app): playing or not, and the now playing of the music players of Gladys 5.3.0 (title, artist, album, cover, duration, position). With JewelBox 1.18+, **controlled from Gladys**: play / pause, next / previous, seek, volume, mute, shuffle, repeat, and the JewelBox catalog in the music box (browse, search, queue, play).
 - **Scene triggers**: album added (collection or wish list, or a wish come true), album lent, album returned, loan overdue, playback started / stopped, new track.
-- **Scene actions**: what is playing, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
-- **Five dashboard widgets**: player with its cover, collection, lent albums, album of the day, recently added.
+- **Scene actions**: what is playing, a sleep timer, a random album (by genre), the album of the day, lend an album, mark it returned, scan the music library.
+- **Five dashboard widgets**: player with its cover, collection (or, with its **Show** setting, my listening: plays and most played albums of the month, the year or all time, JewelBox 1.20+), lent albums, album of the day, recently added.
 - **Found by itself** on the network (mDNS `_jewelbox._tcp`), an address to type as a fallback.
 
 ## How it works
@@ -78,6 +78,7 @@ A player also publishes the `music` features of Gladys 5.3.0: title, artist, alb
 | JewelBox collection | Average rating                        | `counter-sensor` / `decimal`              | 1 to 5                  |
 | JewelBox collection | Playing time                          | `duration` / `decimal`, hours             | whole collection        |
 | JewelBox collection | Oldest loan                           | `duration` / `integer`, days              | 0 without loan          |
+| JewelBox collection | Plays today, Plays this month         | `counter-sensor` / `integer`              | JewelBox 1.20+          |
 | JewelBox player     | Playback                              | `music` / `playback_state`                | writable with control   |
 | JewelBox player     | Track, Artist, Album                  | `text` / `text`                           | the current track       |
 | JewelBox player     | Now playing: title, artist, album     | `music` / `title`, `artist`, `album`      | empty when no queue     |

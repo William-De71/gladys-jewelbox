@@ -187,9 +187,74 @@
         "fr": "Collection de CD"
       },
       "description": {
-        "en": "Albums, wish list, loans, artists, hours of music, albums by decade and top genres.",
-        "fr": "Albums, liste de souhaits, prêts, artistes, heures de musique, albums par décennie et genres phares."
-      }
+        "en": "The collection (albums, loans, decades, genres) or my listening (plays, top albums).",
+        "fr": "La collection (albums, prêts, décennies, genres) ou mes écoutes (écoutes, albums phares)."
+      },
+      "settings": [
+        {
+          "key": "view",
+          "type": "select",
+          "default": "collection",
+          "required": false,
+          "label": {
+            "en": "Show",
+            "fr": "Afficher"
+          },
+          "options": [
+            {
+              "value": "collection",
+              "label": {
+                "en": "The collection",
+                "fr": "La collection"
+              }
+            },
+            {
+              "value": "listening",
+              "label": {
+                "en": "My listening (JewelBox 1.20+)",
+                "fr": "Mes écoutes (JewelBox 1.20+)"
+              }
+            }
+          ]
+        },
+        {
+          "key": "period",
+          "type": "select",
+          "default": "month",
+          "required": false,
+          "label": {
+            "en": "Listening period",
+            "fr": "Période des écoutes"
+          },
+          "description": {
+            "en": "For my listening: the period of the most played albums.",
+            "fr": "Pour mes écoutes : la période des albums les plus écoutés."
+          },
+          "options": [
+            {
+              "value": "month",
+              "label": {
+                "en": "This month",
+                "fr": "Ce mois-ci"
+              }
+            },
+            {
+              "value": "year",
+              "label": {
+                "en": "This year",
+                "fr": "Cette année"
+              }
+            },
+            {
+              "value": "all",
+              "label": {
+                "en": "All time",
+                "fr": "Depuis toujours"
+              }
+            }
+          ]
+        }
+      ]
     },
     {
       "key": "loans",

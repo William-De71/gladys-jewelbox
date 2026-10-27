@@ -69,6 +69,9 @@ export function createFakeJewelBox({ now }) {
       { key: 'dynamic_mix', track_count: 50 },
     ],
     coverBytes: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]),
+    // Listening statistics (JewelBox 1.20): null for an older server (404);
+    // else period -> the answer of /api/player/stats.
+    listening: null,
   };
   const calls = [];
 
@@ -195,6 +198,10 @@ export function createFakeJewelBox({ now }) {
       return json({ database: { ...state.db, path: '/x.db', is_active: 1 } });
     }
     if (pathname === '/api/stats') return json(stats());
+    if (pathname === '/api/player/stats') {
+      const answer = state.listening?.[searchParams.get('period')];
+      return answer ? json(answer) : json({ error: 'Not found' }, 404);
+    }
     if (pathname === '/api/albums/genres') {
       return json([...new Set(state.albums.map((album) => album.genre).filter(Boolean))].sort());
     }

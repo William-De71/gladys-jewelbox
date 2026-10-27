@@ -69,6 +69,24 @@
           "max": 36500,
           "read_only": true,
           "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:plays_today",
+          "category": "counter-sensor",
+          "type": "integer",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
+        },
+        {
+          "external_id": "ext:test-integration:collection:009004e9-ab55-4894-9e96-10e930a04b7f:plays_month",
+          "category": "counter-sensor",
+          "type": "integer",
+          "min": 0,
+          "max": 1000000,
+          "read_only": true,
+          "has_feedback": false
         }
       ]
     },
@@ -360,8 +378,11 @@
       },
       {
         "key": "collection",
-        "settings": [],
-        "options": {}
+        "settings": ["view", "period"],
+        "options": {
+          "view": ["collection", "listening"],
+          "period": ["month", "year", "all"]
+        }
       },
       {
         "key": "loans",
