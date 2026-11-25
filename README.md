@@ -164,7 +164,7 @@ Run against a real Gladys: install in developer mode to get a token, then `GLADY
 
 ![Release pipeline (illustration)](docs/assets/release-pipeline.svg)
 
-Every merge on `main` releases when its Conventional Commits deserve it (`feat` → minor, `fix` → patch, below 1.0.0 a breaking change is a minor): CI, version, `CHANGELOG.md` generated, tag, multi-arch image `ghcr.io/william-de71/gladys-jewelbox`, then `main`, the GitHub Release, and a check that the image is public and that the store topic is absent. PR titles are the changelog lines. The ruleset of `main` forbids deletion and force-push only: a “PR required” rule would block the release commit (allow GitHub Actions to bypass it, or use a GitHub App).
+Every merge on `main` releases when its Conventional Commits deserve it (`feat` → minor, `fix` → patch, below 1.0.0 a breaking change is a minor): CI, version, `CHANGELOG.md` generated, tag, multi-arch image `ghcr.io/william-de71/gladys-jewelbox`, then `main`, the GitHub Release, and a check that the image is public and that the store topic is absent. PR titles are the changelog lines. Rulesets require a pull request on `main` and lock the `v*` tags; only the maintainer and deploy keys get through. The release pushes with the deploy key of the `release` environment (secret `RELEASE_DEPLOY_KEY`, `main` only): a run from another branch never gets it. `build.yml` and `github-release.yml` do not start on a tag: the release calls them, or run them by hand (Actions → Run workflow, with `version` for the image) to finish a release.
 
 ## Troubleshooting
 

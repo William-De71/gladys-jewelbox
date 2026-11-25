@@ -164,7 +164,7 @@ Contre un vrai Gladys : installez en mode développeur pour obtenir un jeton, pu
 
 ![Chaîne de publication (illustration)](docs/assets/release-pipeline.svg)
 
-Chaque fusion sur `main` publie une version quand ses Conventional Commits le justifient (`feat` → mineure, `fix` → corrective, sous 1.0.0 un changement cassant donne une mineure) : CI, version, `CHANGELOG.md` généré, tag, image multi-arch `ghcr.io/william-de71/gladys-jewelbox`, puis `main`, la GitHub Release, et une vérification que l’image est publique et que le topic du store est absent. Les titres de PR sont les lignes du changelog. Le ruleset de `main` interdit seulement la suppression et le force-push : une règle « PR obligatoire » bloquerait le commit de release (autoriser GitHub Actions à la contourner, ou passer par une GitHub App).
+Chaque fusion sur `main` publie une version quand ses Conventional Commits le justifient (`feat` → mineure, `fix` → corrective, sous 1.0.0 un changement cassant donne une mineure) : CI, version, `CHANGELOG.md` généré, tag, image multi-arch `ghcr.io/william-de71/gladys-jewelbox`, puis `main`, la GitHub Release, et une vérification que l’image est publique et que le topic du store est absent. Les titres de PR sont les lignes du changelog. Des rulesets imposent une pull request sur `main` et verrouillent les tags `v*` ; seuls le mainteneur et les deploy keys passent. La release pousse avec la deploy key de l’environnement `release` (secret `RELEASE_DEPLOY_KEY`, `main` seulement) : un run lancé depuis une autre branche ne l’obtient jamais. `build.yml` et `github-release.yml` ne démarrent pas sur un tag : la release les appelle, ou lancez-les à la main (Actions → Run workflow, avec `version` pour l’image) pour terminer une release.
 
 ## Dépannage
 
